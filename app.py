@@ -23,6 +23,7 @@ logger = setup_logger(__name__)
 app = Flask(__name__)
 regions = area_manager.areas
 
+
 @app.route("/")
 def index():
     """
@@ -125,50 +126,51 @@ def vacancy_responses(vacancy_id: int):
 
 @app.route("/resumes/<task_id>")
 def show_resumes(task_id: str):
-    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
-    resumes = result.get("items", [])
-    found = len(resumes)
+    # result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
+    # resumes = result.get("items", [])
+    # found = len(resumes)
 
-    # Получаем description из Redis
-    task_data = redis_manager.get_task_data(task_id)
-    description = task_data.get("description", "") if task_data else ""
+    # # Получаем description из Redis
+    # task_data = redis_manager.get_task_data(task_id)
+    # description = task_data.get("description", "") if task_data else ""
 
-    # Обработка AI-оценки (можно оставить как есть)
-    for resume in resumes:
-        candidate_exp = ""
+    # # Обработка AI-оценки (можно оставить как есть)
+    # for resume in resumes:
+    #     candidate_exp = ""
 
-        exp_data = resume.get("experience", [])
-        if isinstance(exp_data, str):
-            try:
-                exp_data = json.loads(exp_data)
-            except json.JSONDecodeError:
-                exp_data = []
+    #     exp_data = resume.get("experience", [])
+    #     if isinstance(exp_data, str):
+    #         try:
+    #             exp_data = json.loads(exp_data)
+    #         except json.JSONDecodeError:
+    #             exp_data = []
 
-        for exp in exp_data:
-            if isinstance(exp, dict):
-                desc = exp.get("description", "").strip()
-                if desc:
-                    candidate_exp += desc + "\n\n"
+    #     for exp in exp_data:
+    #         if isinstance(exp, dict):
+    #             desc = exp.get("description", "").strip()
+    #             if desc:
+    #                 candidate_exp += desc + "\n\n"
 
-        if not candidate_exp:
-            candidate_exp = "Опыт работы не указан."
+    #     if not candidate_exp:
+    #         candidate_exp = "Опыт работы не указан."
 
-        match_percent, match_reason = ai_evaluator.evaluate_candidate_match(
-            candidate_exp=candidate_exp,
-            vacancy_description=description
-        )
+    #     match_percent, match_reason = ai_evaluator.evaluate_candidate_match(
+    #         candidate_exp=candidate_exp,
+    #         vacancy_description=description
+    #     )
 
-        resume["match_percent"] = match_percent
-        resume["match_reason"] = match_reason
+    #     resume["match_percent"] = match_percent
+    #     resume["match_reason"] = match_reason
 
-    return render_template(
-        "resume_list.html",
-        resumes=resumes,
-        found=found,
-        current_offset=0,
-        limit=1000,
-        task_id=task_id
-    )
+    # return render_template(
+    #     "resume_list.html",
+    #     resumes=resumes,
+    #     found=found,
+    #     current_offset=0,
+    #     limit=1000,
+    #     task_id=task_id
+    # )
+    return render_template("resume_list.html", task_id=task_id)
 
 
 @app.route("/export/<task_id>/<format>")
@@ -240,3 +242,57 @@ def load_resume_limits():
     except Exception as e:
         logger.warning(f"Не удалось загрузить лимиты: {e}")
         g.resume_limits = {"error": "Ошибка загрузки лимитов"}
+
+
+# === Новый API-роут для AJAX ===
+
+@app.route("/api/resumes/<task_id>")
+def get_resumes_json(task_id: str):
+    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
+    resumes = result.get("items", [])
+    
+    # Получаем description из Redis
+    task_data = redis_manager.get_task_data(task_id)
+    description = task_data.get("description", "") if task_data else ""
+
+    processed_resumes = []
+    count=1
+    for resume in resumes:
+        candidate_exp = ""
+        exp_data = resume.get("experience", [])
+        if isinstance(exp_data, str):
+            try:
+                exp_data = json.loads(exp_data)
+            except json.JSONDecodeError:
+                exp_data = []
+        for exp in exp_data:
+            if isinstance(exp, dict):
+                desc = exp.get("description", "").strip()
+                if desc:
+                    candidate_exp += desc + "\n"
+        if not candidate_exp:
+            candidate_exp = "Опыт работы не указан."
+
+        match_percent, match_reason = ai_evaluator.evaluate_candidate_match(
+            candidate_exp=candidate_exp,
+            vacancy_description=description
+        )
+        
+        logger.info(f"Кандидат добавлен {count}/{len(resumes)}")
+        count += 1
+
+        processed_resumes.append({
+            "id": resume.get("id"),
+            "first_name": resume.get("first_name"),
+            "last_name": resume.get("last_name"),
+            "middle_name": resume.get("middle_name"),
+            "age": resume.get("age"),
+            "area": resume.get("area", {}).get("name") if resume.get("area") else "-",
+            "title": resume.get("title"),
+            "salary": f"{resume.get('salary', {}).get('amount')} {resume.get('salary', {}).get('currency')}" if resume.get("salary") else "—",
+            "total_experience": resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0,
+            "match_percent": match_percent,
+            "alternate_url": resume.get("alternate_url"),
+        })
+
+    return {"resumes": processed_resumes}

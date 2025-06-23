@@ -175,16 +175,3 @@ class RedisManager:
             self.client.setex(key, self.ttl_seconds, json.dumps(data))
         except Exception as e:
             logger.error(f"Ошибка при обновлении resume_ids задачи {task_id}: {e}")
-
-    def update_task_progress(self, task_id: str, progress: int, status: str = "in_progress") -> None:
-        key = self._make_key(task_id)
-        data = self.get_task_data(task_id)
-        if not data:
-            return
-        data["progress"] = progress
-        data["status"] = status
-        data["updated_at"] = datetime.now().isoformat()
-        try:
-            self.client.setex(key, self.ttl_seconds, json.dumps(data))
-        except Exception as e:
-            logger.error(f"Ошибка при обновлении прогресса задачи {task_id}: {e}")

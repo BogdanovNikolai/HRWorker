@@ -86,7 +86,18 @@ class SearchEngine:
         """
         Сохраняет резюме в кэш (БД) без изменений.
         """
-        self.resume_repo.create_resume(resume_data)
+        if not resume_data.get("id"):
+            logger.warning("Резюме без ID не может быть сохранено")
+            return
+
+        if self.resume_repo.resume_exists(resume_data["id"]):
+            logger.debug(f"Резюме {resume_data['id']} уже существует в БД. Пропускаем сохранение.")
+            return
+
+        try:
+            self.resume_repo.create_resume(resume_data)
+        except Exception as e:
+            logger.error(f"Ошибка при сохранении резюме в кэш: {e}")
 
     def _format_cached_resume(self, db_resume: Any) -> Dict[str, Any]:
         try:

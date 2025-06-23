@@ -5,7 +5,7 @@
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Новые кандидаты</h2>
-    <span class="badge bg-primary fs-6">Найдено: {{ found }}</span>
+    <span id="found-counter" class="badge bg-primary fs-6">Загрузка...</span>
   </div>
 
   <!-- Кнопки экспорта -->
@@ -20,7 +20,7 @@
 
   <!-- Таблица резюме -->
   <div class="table-responsive">
-    <table class="table table-hover align-middle">
+    <table id="resume-table" class="table table-hover align-middle">
       <thead class="table-light">
         <tr>
           <th>ФИО</th>
@@ -35,59 +35,66 @@
         </tr>
       </thead>
       <tbody>
-        {% for resume in resumes %}
-        <tr>
-          <td>
-            {{ resume.first_name }} {{ resume.last_name }}
-            {% if resume.middle_name %}
-              {{ resume.middle_name }}
-            {% endif %}
-          </td>
-          <td>{{ resume.age or '-' }}</td>
-          <td>{{ resume.area.name if resume.area and resume.area.name else '-' }}</td>
-          <td>{{ resume.title or '-' }}</td>
-          <td>
-            {% if resume.salary and resume.salary.amount %}
-              {{ resume.salary.amount }} {{ resume.salary.currency or '' }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td>
-            {% if resume.total_experience and resume.total_experience.months %}
-              {{ resume.total_experience.months }}
-            {% else %}
-              0
-            {% endif %}
-          </td>
-          <td>
-            {% if resume.match_percent %}
-              {{ resume.match_percent }}
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if resume.alternate_url %}
-              <a href="{{ resume.alternate_url }}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-          <td class="text-center">
-            <div class="form-check form-check-inline m-0">
-              <input class="form-check-input" type="checkbox" name="resume_ids" value="{{ resume.id }}">
-            </div>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="9" class="text-center text-muted py-4">Резюме не найдены</td>
-        </tr>
-        {% endfor %}
+        <!-- Сюда будут подгружаться строки через AJAX -->
       </tbody>
     </table>
   </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const taskId = "{{ task_id }}";
+    const apiUrl = `/api/resumes/${taskId}`;
+    const tbody = document.querySelector("#resume-table tbody");
+    const foundCounter = document.getElementById("found-counter");
+
+    fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        if (!data.resumes || data.resumes.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">Резюме не найдены</td>
+            </tr>
+          `;
+          foundCounter.textContent = "Найдено: 0";
+          return;
+        }
+
+        tbody.innerHTML = "";
+        data.resumes.forEach(resume => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${resume.first_name} ${resume.last_name} ${resume.middle_name || ''}</td>
+            <td>${resume.age || '-'}</td>
+            <td>${resume.area}</td>
+            <td>${resume.title || '-'}</td>
+            <td>${resume.salary}</td>
+            <td>${resume.total_experience}</td>
+            <td>${resume.match_percent || '<span class="text-muted">—</span>'}</td>
+            <td>${resume.alternate_url ? `<a href="${resume.alternate_url}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>` : '<span class="text-muted">—</span>'}</td>
+            <td class="text-center">
+              <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        foundCounter.textContent = "Найдено: " + data.resumes.length;
+      })
+      .catch(error => {
+        console.error("Ошибка загрузки резюме:", error);
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="text-center text-danger py-4">Ошибка загрузки данных</td>
+          </tr>
+        `;
+        foundCounter.textContent = "Ошибка загрузки";
+      });
+  });
+</script>
 
 {% endblock %}

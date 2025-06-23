@@ -36,6 +36,9 @@ class ResumeRepository:
         """
         return self.db.query(Resume).filter(Resume.link == link).first()
 
+    def resume_exists(self, resume_id: str) -> bool:
+        return self.db.query(Resume.id).filter(Resume.id == resume_id).first() is not None
+
     def create_resume(self, resume_data: dict) -> Resume:
         """
         Добавляет новое резюме в БД.
