@@ -42,12 +42,45 @@
 </div>
 
 <script>
+  // Функция преобразования месяцев в "X лет Y мес"
+  function formatExperience(months) {
+    if (!months || months < 1) return '—';
+
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+
+    let result = '';
+    if (years > 0) {
+      result += years + ' ' + pluralize(years, 'год', 'года', 'лет');
+    }
+    if (remainingMonths > 0) {
+      if (result) result += ' ';
+      result += remainingMonths + ' ' + pluralize(remainingMonths, 'мес', 'мес', 'мес');
+    }
+
+    return result;
+  }
+
+  // Помощник для склонения слов
+  function pluralize(n, one, few, many) {
+    n = Math.abs(n) % 100;
+    const n1 = n % 10;
+    if (n > 10 && n < 20) return many;
+    if (n1 > 1 && n1 < 5) return few;
+    if (n1 === 1) return one;
+    return many;
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     const taskId = "{{ task_id }}";
     const apiUrl = `/api/resumes/${taskId}`;
     const tbody = document.querySelector("#resume-table tbody");
     const foundCounter = document.getElementById("found-counter");
 
+    let resumesData = [];
+    let sortConfig = { key: null, direction: 'asc' };
+
+    // Функция загрузки данных
     fetch(apiUrl)
       .then(response => response.json())
       .then(data => {
@@ -61,29 +94,10 @@
           return;
         }
 
-        tbody.innerHTML = "";
-        data.resumes.forEach(resume => {
-          const row = document.createElement("tr");
-
-          row.innerHTML = `
-            <td>${resume.first_name} ${resume.last_name} ${resume.middle_name || ''}</td>
-            <td>${resume.age || '-'}</td>
-            <td>${resume.area}</td>
-            <td>${resume.title || '-'}</td>
-            <td>${resume.salary}</td>
-            <td>${resume.total_experience}</td>
-            <td>${resume.match_percent || '<span class="text-muted">—</span>'}</td>
-            <td>${resume.alternate_url ? `<a href="${resume.alternate_url}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>` : '<span class="text-muted">—</span>'}</td>
-            <td class="text-center">
-              <div class="form-check form-check-inline m-0">
-                <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">
-              </div>
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
-
-        foundCounter.textContent = "Найдено: " + data.resumes.length;
+        resumesData = data.resumes;
+        foundCounter.textContent = "Найдено: " + resumesData.length;
+        renderTable(resumesData);
+        setupSortHandlers();
       })
       .catch(error => {
         console.error("Ошибка загрузки резюме:", error);
@@ -94,7 +108,108 @@
         `;
         foundCounter.textContent = "Ошибка загрузки";
       });
+
+    // Рендер таблицы
+    function renderTable(data) {
+      tbody.innerHTML = "";
+      data.forEach(resume => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${resume.first_name} ${resume.last_name} ${resume.middle_name || ''}</td>
+          <td>${resume.age || '-'}</td>
+          <td>${resume.area}</td>
+          <td>${resume.title || '-'}</td>
+          <td>${resume.salary}</td>
+          <td>${formatExperience(resume.total_experience)}</td>
+          <td>${resume.match_percent ? resume.match_percent + '%' : '<span class="text-muted">—</span>'}</td>
+          <td>${resume.alternate_url ? `<a href="${resume.alternate_url}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>` : '<span class="text-muted">—</span>'}</td>
+          <td class="text-center">
+            <div class="form-check form-check-inline m-0">
+              <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Сортировка
+    function sortData(key, numeric = false) {
+      const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+      sortConfig = { key, direction };
+
+      // Очистка предыдущих стрелочек
+      document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+
+      // Находим нужный заголовок и добавляем класс сортировки
+      const headers = Array.from(document.querySelectorAll('#resume-table thead th'));
+      const index = headers.findIndex(th => th.dataset.sort === key);
+      if (index !== -1) {
+        headers[index].classList.add('sorted');
+        headers[index].dataset.order = direction;
+      }
+
+      // Сортируем
+      resumesData.sort((a, b) => {
+        let valA = a[key];
+        let valB = b[key];
+
+        if (numeric) {
+          valA = parseFloat(valA);
+          valB = parseFloat(valB);
+        } else {
+          valA = (valA || '').toString().toLowerCase();
+          valB = (valB || '').toString().toLowerCase();
+        }
+
+        if (valA < valB) return direction === 'asc' ? -1 : 1;
+        if (valA > valB) return direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      renderTable(resumesData);
+    }
+
+    // Назначаем обработчики кликов на заголовки
+    function setupSortHandlers() {
+      document.querySelectorAll('#resume-table thead th').forEach(th => {
+        const keyMap = {
+          'ФИО': 'first_name',
+          'Возраст': 'age',
+          'Город': 'area',
+          'Должность': 'title',
+          'Зарплата': 'salary',
+          'Опыт (мес)': 'total_experience',
+          'Соответствие (%)': 'match_percent'
+        };
+
+        const headerText = th.innerText.trim();
+        const key = keyMap[headerText];
+
+        if (key) {
+          th.dataset.sort = key;
+          th.style.cursor = 'pointer';
+          th.addEventListener('click', () => {
+            const isNumeric = ['age', 'salary', 'total_experience', 'match_percent'].includes(key);
+            sortData(key, isNumeric);
+          });
+        }
+      });
+    }
   });
 </script>
+
+<style>
+  /* Стрелочка для сортировки */
+  th.sorted::after {
+    content: " ▲";
+    display: inline-block;
+    font-size: 0.7em;
+  }
+
+  th[data-order="desc"]::after {
+    content: " ▼";
+  }
+</style>
 
 {% endblock %}

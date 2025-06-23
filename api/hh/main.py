@@ -10,7 +10,7 @@
 Все методы используют токен из config.conf.HH_ACCESS_TOKENS.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import urlencode
 import requests
 import json
@@ -23,19 +23,44 @@ from ai import ai_evaluator
 
 logger = setup_logger(__name__)
 
-def retry_on_limit_exceeded(func):
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        try:
-            return func(self, *args, **kwargs)
-        except requests.HTTPError as e:
-            status = e.response.status_code
-            if status in (403, 429):  # добавлен 429
-                logger.warning(f"Лимит исчерпан или слишком много запросов ({status}), переключаем токен...")
-                self.use_next_token()
-                return func(self, *args, **kwargs)
-            raise
-    return wrapper
+def retry_on_limit_exceeded(max_retries=3, delay=2, backoff=2):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            retries = 0
+            current_delay = delay
+
+            while retries <= max_retries:
+                try:
+                    return func(self, *args, **kwargs)
+                except requests.HTTPError as e:
+                    status = e.response.status_code
+                    if status in (403, 429):
+                        logger.warning(f"Лимит исчерпан или слишком много запросов ({status}), переключаем токен...")
+                        self.use_next_token()
+                        retries += 1
+                        time.sleep(current_delay)
+                        current_delay *= backoff
+                        continue
+                    elif status == 504:  # Gateway Timeout
+                        logger.warning("Получен ответ 504 Gateway Timeout. Повторяем попытку.")
+                        retries += 1
+                        time.sleep(current_delay)
+                        current_delay *= backoff
+                        continue
+                    else:
+                        raise
+                except (requests.ConnectTimeout, requests.ConnectionError) as e:
+                    logger.warning(f"Сетевая ошибка: {e}. Ждём {current_delay} секунд и повторяем...")
+                    retries += 1
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+                    continue
+
+            logger.error("Превышено количество попыток. Операция не выполнена.")
+            raise Exception("Превышено количество попыток подключения к API")
+        return wrapper
+    return decorator
 
 
 def refresh_token_if_needed(func):
@@ -170,7 +195,7 @@ class HHApiClient:
             "User-Agent": "HH-User-Agent",
         }
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_all_resumes(
         self,
@@ -283,7 +308,7 @@ class HHApiClient:
             logger.warning("Лимит просмотра резюме исчерпан. Переключаем токен.")
             self.use_next_token()
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_resume_details(self, resume_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -330,7 +355,7 @@ class HHApiClient:
             logger.error(f"Сетевая ошибка при получении резюме {resume_id}: {e}")
             raise
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_employer_vacancies(self, employer_id: int, per_page: int = 50) -> List[Dict[str, Any]]:
         """
@@ -390,7 +415,7 @@ class HHApiClient:
 
         return all_vacancies
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_vacancy_by_id(self, vacancy_id: int):
         """
@@ -405,7 +430,7 @@ class HHApiClient:
         
         return vacancy
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_negotiations_by_vacancy(self, vacancy_id: int, per_page: int = 50) -> List[Dict[str, Any]]:
         """
@@ -469,7 +494,7 @@ class HHApiClient:
 
         return all_negotiations
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_new_negotiations_by_vacancy(self, vacancy_id: int, per_page: int = 50) -> List[Dict[str, Any]]:
         """
@@ -484,7 +509,7 @@ class HHApiClient:
         all_negotiations = self.get_negotiations_by_vacancy(vacancy_id, per_page=per_page)
         return [n for n in all_negotiations if n.get("has_updates", False)]
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_resume_limits(self, manager_id: int) -> Dict[str, Any]:
         """
@@ -524,7 +549,7 @@ class HHApiClient:
             logger.error(f"Ошибка при получении лимитов просмотра резюме: {e}")
             raise
 
-    @retry_on_limit_exceeded
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_current_manager(self) -> Dict[str, Any]:
         """
