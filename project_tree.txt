@@ -1,0 +1,88 @@
+=== Дерево проекта ===
+
+├── .env
+    └── CONTENT:
+├── .env.example
+├── .gitignore
+├── README.md
+    └── CONTENT:
+├── [ai/]
+│   ├── __init__.py
+│       └── CONTENT:
+│   └── main.py
+│       └── CONTENT:
+├── [api/]
+│   └── [hh/]
+│       ├── __init__.py
+│           └── CONTENT:
+│       └── main.py
+│           └── CONTENT:
+├── app.py
+    └── CONTENT:
+├── build_tree.py
+    └── CONTENT:
+        import os
+        from pathlib import Path
+        
+        # === Настройки ===
+        PROJECT_ROOT = "."  # корень проекта (текущая директория)
+        OUTPUT_FILE = "project_tree.txt"  # выходной файл
+        
+        # Какие файлы читать (расширения)
+        INCLUDE_EXTENSIONS = [".py", ".txt", ".md", ".env", ".json"]
+        
+        # Какие директории игнорировать
+        IGNORE_DIRS = {
+            "__pycache__",
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            "migrations",
+            ".pytest_cache",
+            "env"
+        ...
+├── [config/]
+│   ├── __init__.py
+│       └── CONTENT:
+│   └── main.py
+│       └── CONTENT:
+├── [data_manager/]
+│   ├── __init__.py
+│       └── CONTENT:
+│   ├── exporters.py
+│       └── CONTENT:
+│   ├── main.py
+│       └── CONTENT:
+│   ├── resume_processor.py
+│       └── CONTENT:
+│   ├── search_engine.py
+│       └── CONTENT:
+│   └── task_tracker.py
+│       └── CONTENT:
+├── [database/]
+│   ├── __init__.py
+│       └── CONTENT:
+│   ├── models.py
+│       └── CONTENT:
+│   ├── repository.py
+│       └── CONTENT:
+│   └── session.py
+│       └── CONTENT:
+├── [docs/]
+│   ├── docs.md
+│       └── CONTENT:
+│   └── generate_docs.py
+│       └── CONTENT:
+├── requirements.txt
+    └── CONTENT:
+├── [templates/]
+│   ├── index.html
+│   ├── resume_list.html
+│   └── task_progress.html
+├── [tests/]
+└── [utils/]
+    ├── helpers.py
+        └── CONTENT:
+    └── logger.py
+        └── CONTENT:

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Поиск резюме{% endblock %}
+{% block content %}
+<h2>Поиск резюме по ключевым словам</h2>
+
+<form method="GET" action="{{ url_for('search') }}" class="mb-4">
+    <div class="mb-3">
+        <label for="keywords" class="form-label">Ключевые слова</label>
+        <input type="text" class="form-control" id="keywords" name="keywords"
+               placeholder="python middle разработчик"
+               value="{{ request.args.get('keywords', '') }}">
+    </div>
+
+    <div class="mb-3">
+        <label for="salary_to" class="form-label">Верхняя граница зарплаты</label>
+        <input type="number" class="form-control" id="salary_to" name="salary_to"
+               value="{{ request.args.get('salary_to') }}">
+    </div>
+
+    <div class="mb-3">
+        <label for="region">Регион</label>
+        <select id="region" name="region" class="form-control" multiple>
+            <option value="">-- Выберите регион --</option>
+            {% for region in regions %}
+                <option value="{{ region.id }}">{{ region.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <script>
+        new TomSelect("#region", {
+            plugins: ['remove_button'],
+            maxItems: 10,
+            placeholder: "Выберите до 10 регионов",
+        });
+    </script>
+
+    <div class="mb-3">
+        <label for="description" class="form-label">Описание вакансии (для ИИ)</label>
+        <textarea class="form-control" id="description" name="description" rows="3">
+{{ request.args.get('description', '') }}</textarea>
+    </div>
+
+    <div class="mb-3">
+        <label for="total" class="form-label">Сколько всего резюме загрузить</label>
+        <input type="number" class="form-control" id="total" name="total" min="1"
+               value="{{ request.args.get('total', '20') }}">
+    </div>
+
+    <button type="submit" class="btn btn-primary">Искать</button>
+</form>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% endblock %}

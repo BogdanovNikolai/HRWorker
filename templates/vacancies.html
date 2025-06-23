@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Вакансии компании{% endblock %}
+{% block content %}
+<h2>Активные вакансии нашей компании</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Всего откликов</th>
+            <th>Новых откликов</th>
+            <th>Ссылка</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for vacancy in vacancies %}
+        <tr>
+            <td><a href="{{ url_for('vacancy_responses', vacancy_id=vacancy.id) }}">{{ vacancy.title }}</a></td>
+            <td>{{ vacancy.responses_total }}</td>
+            <td>{{ vacancy.responses_unread }}</td>
+            <td><a href="{{ vacancy.url }}" target="_blank">Посмотреть на HH</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

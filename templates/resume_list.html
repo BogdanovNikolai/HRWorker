@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Кандидаты по вакансии{% endblock %}
+{% block content %}
+
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Новые кандидаты</h2>
+    <span class="badge bg-primary fs-6">Найдено: {{ found }}</span>
+  </div>
+
+  <!-- Кнопки экспорта -->
+  <div class="mb-3 d-flex gap-2">
+    <form method="get" action="{{ url_for('export_resumes', task_id=task_id, format='xlsx') }}">
+      <button type="submit" class="btn btn-success">Экспорт в Excel</button>
+    </form>
+    <form method="get" action="{{ url_for('export_resumes', task_id=task_id, format='csv') }}">
+      <button type="submit" class="btn btn-outline-secondary">Экспорт в CSV</button>
+    </form>
+  </div>
+
+  <!-- Таблица резюме -->
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>ФИО</th>
+          <th>Возраст</th>
+          <th>Город</th>
+          <th>Должность</th>
+          <th>Зарплата</th>
+          <th>Опыт (мес)</th>
+          <th>Соответствие (%)</th>
+          <th>Ссылка на HH</th>
+          <th class="text-center">Выбрать</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for resume in resumes %}
+        <tr>
+          <td>
+            {{ resume.first_name }} {{ resume.last_name }}
+            {% if resume.middle_name %}
+              {{ resume.middle_name }}
+            {% endif %}
+          </td>
+          <td>{{ resume.age or '-' }}</td>
+          <td>{{ resume.area.name if resume.area and resume.area.name else '-' }}</td>
+          <td>{{ resume.title or '-' }}</td>
+          <td>
+            {% if resume.salary and resume.salary.amount %}
+              {{ resume.salary.amount }} {{ resume.salary.currency or '' }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if resume.total_experience and resume.total_experience.months %}
+              {{ resume.total_experience.months }}
+            {% else %}
+              0
+            {% endif %}
+          </td>
+          <td>
+            {% if resume.match_percent %}
+              {{ resume.match_percent }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if resume.alternate_url %}
+              <a href="{{ resume.alternate_url }}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <div class="form-check form-check-inline m-0">
+              <input class="form-check-input" type="checkbox" name="resume_ids" value="{{ resume.id }}">
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-4">Резюме не найдены</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
