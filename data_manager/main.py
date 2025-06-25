@@ -242,7 +242,6 @@ class DataManager:
         """
         return self.hh_client.get_resume_limits(manager_id)
     
-    #TODO IMPLEMENT IN APP
     def read_negotiations(self, negotiation_ids: List[int]) -> bool:
         """
         Помечает список откликов как прочитанные.

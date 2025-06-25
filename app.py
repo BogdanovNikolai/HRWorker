@@ -123,15 +123,20 @@ def vacancy_responses(vacancy_id: int):
     Сохраняет список откликов как новую задачу и перенаправляет на /resumes/<task_id>.
     """
     resume_ids, negotiation_ids = dm.get_new_resume_ids_from_negotiations(vacancy_id)
+
+    # маппинг resume_id: negotiation_id
+    resume_to_negotiation = dict(zip(resume_ids, negotiation_ids))
+    
     vacancy = dm.get_vacancy_by_id(vacancy_id)
     description = vacancy.get("description", "") if vacancy else ""
 
     task_id = redis_manager.create_task(resume_ids, description=description)
-    return redirect(url_for("show_resumes", task_id=task_id, negotiation_ids=negotiation_ids))
+
+    return redirect(url_for("show_resumes", task_id=task_id, resume_negotiation_map=json.dumps(resume_to_negotiation)))
 
 
 @app.route("/resumes/<task_id>")
-def show_resumes(task_id: str, negotiation_ids: List[int] = None):
+def show_resumes(task_id: str, resume_negotiation_map: str = None):
     # result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
     # resumes = result.get("items", [])
     # found = len(resumes)
@@ -176,7 +181,11 @@ def show_resumes(task_id: str, negotiation_ids: List[int] = None):
     #     limit=1000,
     #     task_id=task_id
     # )
-    return render_template("resume_list.html", task_id=task_id)
+    return render_template(
+        "resume_list.html",
+        task_id=task_id,
+        resume_negotiation_map=resume_negotiation_map
+    )
 
 
 @app.route("/export/<task_id>/<format>")
@@ -302,3 +311,21 @@ def get_resumes_json(task_id: str):
         })
 
     return {"resumes": processed_resumes}
+
+@app.route("/api/read_negotiations", methods=["POST"])
+def read_negotiations():
+    data = request.get_json()
+    negotiation_ids = data.get("negotiation_ids", [])
+
+    if not negotiation_ids:
+        return {"error": "Не переданы negotiation_ids"}, 400
+
+    try:
+        success = dm.read_negotiations(negotiation_ids)
+        if success:
+            return {"status": "ok"}
+        else:
+            return {"error": "Не удалось пометить отклики как прочитанные"}, 500
+    except Exception as e:
+        logger.error(f"Ошибка при пометке откликов: {e}")
+        return {"error": "Внутренняя ошибка сервера"}, 500

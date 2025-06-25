@@ -2,10 +2,19 @@
 {% block title %}Кандидаты по вакансии{% endblock %}
 {% block content %}
 
+<script type="application/json" id="resume-negotiation-map">
+  {{ resume_negotiation_map or '{}' }}
+</script>
+
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Новые кандидаты</h2>
-    <span id="found-counter" class="badge bg-primary fs-6">Загрузка...</span>
+    <div class="d-flex gap-3 align-items-center">
+      <span id="found-counter" class="badge bg-primary fs-6">Загрузка...</span>
+      <button id="mark-read-btn" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-envelope-check me-1"></i>Пометить как прочитанные
+      </button>
+    </div>
   </div>
 
   <!-- Кнопки экспорта -->
@@ -79,8 +88,47 @@
 
     let resumesData = [];
     let sortConfig = { key: null, direction: 'asc' };
+    const resumeNegotiationMap = JSON.parse(document.getElementById("resume-negotiation-map").textContent || '{}');
 
-    // Функция загрузки данных
+    // --- Новая логика: пометить как прочитанные ---
+    document.getElementById("mark-read-btn").addEventListener("click", function () {
+      const selectedCheckboxes = tbody.querySelectorAll("input[type=checkbox]:checked");
+      const selectedResumeIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+      const selectedNegotiationIds = selectedResumeIds
+        .filter(id => resumeNegotiationMap[id])
+        .map(id => resumeNegotiationMap[id]);
+
+      if (selectedNegotiationIds.length === 0) {
+        alert("Выберите хотя бы одного кандидата.");
+        return;
+      }
+
+      fetch("/api/read_negotiations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          negotiation_ids: selectedNegotiationIds
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "ok") {
+          alert("Отклики успешно помечены как прочитанные.");
+          // Опционально: можно удалить строки или обновить UI
+        } else {
+          alert("Ошибка при пометке откликов.");
+        }
+      })
+      .catch(error => {
+        console.error("Ошибка:", error);
+        alert("Произошла ошибка при отправке запроса.");
+      });
+    });
+
+    // --- Загрузка данных ---
     fetch(apiUrl)
       .then(response => response.json())
       .then(data => {
@@ -109,7 +157,7 @@
         foundCounter.textContent = "Ошибка загрузки";
       });
 
-    // Рендер таблицы
+    // --- Рендер таблицы ---
     function renderTable(data) {
       tbody.innerHTML = "";
       data.forEach(resume => {
@@ -133,15 +181,13 @@
       });
     }
 
-    // Сортировка
+    // --- Сортировка ---
     function sortData(key, numeric = false) {
       const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
       sortConfig = { key, direction };
 
-      // Очистка предыдущих стрелочек
       document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
 
-      // Находим нужный заголовок и добавляем класс сортировки
       const headers = Array.from(document.querySelectorAll('#resume-table thead th'));
       const index = headers.findIndex(th => th.dataset.sort === key);
       if (index !== -1) {
@@ -149,7 +195,6 @@
         headers[index].dataset.order = direction;
       }
 
-      // Сортируем
       resumesData.sort((a, b) => {
         let valA = a[key];
         let valB = b[key];
@@ -170,7 +215,6 @@
       renderTable(resumesData);
     }
 
-    // Назначаем обработчики кликов на заголовки
     function setupSortHandlers() {
       document.querySelectorAll('#resume-table thead th').forEach(th => {
         const keyMap = {
