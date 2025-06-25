@@ -42,6 +42,7 @@ class DataManager:
     keywords: str,
     salary_to: Optional[int] = None,
     region: List[str] = ["113"],
+    not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
     description: Optional[str] = ""
@@ -57,6 +58,7 @@ class DataManager:
                 keywords=keywords,
                 salary_to=salary_to,
                 region=region,
+                not_living=not_living,
                 total=total,
                 per_page=per_page
             )

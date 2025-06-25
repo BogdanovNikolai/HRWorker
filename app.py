@@ -43,6 +43,7 @@ def search():
     keywords = request.args.get("keywords", "").strip()
     salary_to = request.args.get("salary_to", type=int)
     region = request.args.getlist('region')
+    not_living = bool(request.args.get("not_living"))
     description = request.args.get("description", "").strip()
     total = request.args.get("total", default=20, type=int)
 
@@ -62,13 +63,13 @@ def search():
             keywords=keywords,
             salary_to=salary_to,
             region=region,
+            not_living=not_living,
             total=total,
             per_page=per_page,
             description=description
         )
         return redirect(url_for("show_resumes", task_id=task_id))
     except ValueError as e:
-        # Ловим ошибки валидации (например, region=None в методе get_all_resumes)
         logger.warning(f"Ошибка валидации: {e}")
         return render_template("search.html", error=str(e), regions=regions)
     except Exception as e:

@@ -203,6 +203,7 @@ class HHApiClient:
         keywords: str,
         salary_to: Optional[int] = None,
         region: List[str] = ["113"],
+        not_living: bool = False,
         total: int = 1,  # Изменено на 1
         per_page: int = 50,
         description: Optional[str] = ""
@@ -232,6 +233,11 @@ class HHApiClient:
         all_items = []
         page = 0
         
+        if not_living:
+            relocation = "living_or_relocation"
+        else:
+            relocation = "living"
+        
         logger.info(len(all_items))
         logger.info(total)
 
@@ -248,7 +254,7 @@ class HHApiClient:
             # Формируем параметры запроса без лишних полей
             params = {
                 "text": keywords_list,
-                "relocation": "living",
+                "relocation": relocation,
                 "job_search_status": ["active_search", "looking_for_offers"],
                 "area": region,
                 "page": page,
