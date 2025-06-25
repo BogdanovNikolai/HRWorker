@@ -256,3 +256,9 @@ class SearchEngine:
     #     negotiations = self.hh_client.get_new_negotiations_by_vacancy(vacancy_id)
     #     resume_ids = [n["resume"]["id"] for n in negotiations if n.get("resume")]
     #     return resume_ids
+    
+    def read_negotiations(self, negotiation_ids: List[int]) -> bool:
+        """
+        Помечает отклики как прочитанные через HH API.
+        """
+        return self.hh_client.read_negotiations(negotiation_ids)

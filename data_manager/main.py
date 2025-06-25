@@ -4,7 +4,7 @@
 Содержит класс DataManager — точку входа для всех операций с данными.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from api.hh.main import HHApiClient
 from data_manager.resume_processor import ResumeProcessor
 from data_manager.search_engine import SearchEngine
@@ -178,12 +178,13 @@ class DataManager:
     def get_vacancy_by_id(self, vacancy_id: int):
         return self.search_engine.get_vacancy_by_id(vacancy_id=vacancy_id)
 
-    def get_new_resume_ids_from_negotiations(self, vacancy_id: int) -> List[str]:
+    def get_new_resume_ids_from_negotiations(self, vacancy_id: int) -> Tuple[List[str], List[int]]:
         """
         Получает список ID новых резюме из откликов по вакансии.
         """
         negotiations = self.hh_client.get_negotiations_by_vacancy(vacancy_id)
         new_resumes = []
+        n_ids = []
 
         for n in negotiations:
             resume = n.get("resume", {})
@@ -196,9 +197,11 @@ class DataManager:
 
             has_updates = n.get("has_updates", False)
             if has_updates:
+                # logger.info(f"ПОЛУЧЕН ОТКЛИК {n.get("id")}")
+                n_ids.append(n.get("id"))
                 new_resumes.append(resume_id)
 
-        return new_resumes
+        return new_resumes, n_ids
 
     def get_resume(self, resume_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -236,3 +239,10 @@ class DataManager:
         Получает лимиты просмотра резюме у менеджера.
         """
         return self.hh_client.get_resume_limits(manager_id)
+    
+    #TODO IMPLEMENT IN APP
+    def read_negotiations(self, negotiation_ids: List[int]) -> bool:
+        """
+        Помечает список откликов как прочитанные.
+        """
+        return self.search_engine.read_negotiations(negotiation_ids)

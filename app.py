@@ -10,6 +10,7 @@
 """
 
 import json
+from typing import List
 from flask import Flask, request, render_template, redirect, url_for, send_file, g
 from data_manager import dm
 from redis_manager import redis_manager
@@ -94,7 +95,10 @@ def vacancies():
             continue
 
         v_id = v.get("id")
+        vacancy = dm.get_vacancy_by_id(v_id)
         negotiations = dm.get_negotiations_by_vacancy(v_id)
+        logger.info(f"Получение откликов по вакансии {v_id}")
+        city = vacancy.get("address", {}).get("city", "") if vacancy else ""
 
         total = len(negotiations)
         unread = sum(1 for n in negotiations if n.get("has_updates", False))
@@ -102,6 +106,7 @@ def vacancies():
         vacancy_list.append({
             "title": v.get("name", "Без названия"),
             "id": v_id,
+            "city": city,
             "responses_total": total,
             "responses_unread": unread,
             "url": v.get("alternate_url", "#")
@@ -116,16 +121,16 @@ def vacancy_responses(vacancy_id: int):
     Отклики по конкретной вакансии.
     Сохраняет список откликов как новую задачу и перенаправляет на /resumes/<task_id>.
     """
-    resume_ids = dm.get_new_resume_ids_from_negotiations(vacancy_id)
+    resume_ids, negotiation_ids = dm.get_new_resume_ids_from_negotiations(vacancy_id)
     vacancy = dm.get_vacancy_by_id(vacancy_id)
     description = vacancy.get("description", "") if vacancy else ""
 
     task_id = redis_manager.create_task(resume_ids, description=description)
-    return redirect(url_for("show_resumes", task_id=task_id))
+    return redirect(url_for("show_resumes", task_id=task_id, negotiation_ids=negotiation_ids))
 
 
 @app.route("/resumes/<task_id>")
-def show_resumes(task_id: str):
+def show_resumes(task_id: str, negotiation_ids: List[int] = None):
     # result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
     # resumes = result.get("items", [])
     # found = len(resumes)

@@ -10,7 +10,8 @@
 Все методы используют токен из config.conf.HH_ACCESS_TOKENS.
 """
 
-from datetime import datetime, time, timedelta
+import time
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import requests
 import json
@@ -576,3 +577,22 @@ class HHApiClient:
         except requests.RequestException as e:
             logger.error(f"Ошибка при получении данных о менеджере: {e}")
             raise
+    
+    @retry_on_limit_exceeded(max_retries=5, delay=2)
+    @refresh_token_if_needed
+    def read_negotiations(self, negotiation_ids: List[int]) -> bool:
+        """
+        Помечает отклики как прочитанные.
+        https://dev.hh.ru/doc_api_negotiations.html#post-read 
+        """
+        url = f"{self.base_url}/negotiations/read"
+        headers = self.get_headers()
+        data = {"ids": negotiation_ids}
+
+        response = requests.post(url, headers=headers, json=data)
+        
+        if response.status_code == 204:
+            return True  # Успешно
+        else:
+            logger.warning(f"Ошибка при пометке откликов как прочитанных: {response.status_code}, {response.text}")
+            return False

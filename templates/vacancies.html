@@ -2,12 +2,14 @@
 {% block title %}Вакансии компании{% endblock %}
 {% block content %}
 <h2>Активные вакансии нашей компании</h2>
-<table class="table table-striped">
+
+<table id="vacancy-table" class="table table-striped">
     <thead>
         <tr>
-            <th>Название</th>
-            <th>Всего откликов</th>
-            <th>Новых откликов</th>
+            <th data-sort="title">Название</th>
+            <th data-sort="city">Город</th>
+            <th data-sort="responses_total">Всего откликов</th>
+            <th data-sort="responses_unread">Новых откликов</th>
             <th>Ссылка</th>
         </tr>
     </thead>
@@ -15,6 +17,7 @@
         {% for vacancy in vacancies %}
         <tr>
             <td><a href="{{ url_for('vacancy_responses', vacancy_id=vacancy.id) }}">{{ vacancy.title }}</a></td>
+            <td>{{ vacancy.city }}</td>
             <td>{{ vacancy.responses_total }}</td>
             <td>{{ vacancy.responses_unread }}</td>
             <td><a href="{{ vacancy.url }}" target="_blank">Посмотреть на HH</a></td>
@@ -22,4 +25,87 @@
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const table = document.getElementById("vacancy-table");
+    const tbody = table.querySelector("tbody");
+    let rows = Array.from(tbody.querySelectorAll("tr"));
+    let sortConfig = { key: null, direction: 'asc' };
+
+    // Сортировка данных
+    function sortData(key, numeric = false) {
+        const direction = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+        sortConfig = { key, direction };
+
+        // Очистка предыдущих классов
+        table.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+
+        // Добавляем класс текущей колонке
+        const headers = table.querySelectorAll('th');
+        headers.forEach(th => {
+            if (th.dataset.sort === key) {
+                th.classList.add('sorted');
+                th.dataset.order = direction;
+            }
+        });
+
+        // Сортируем
+        rows.sort((a, b) => {
+            const cellA = a.querySelector(`td:nth-child(${getColIndexByKey(key)})`)?.textContent.trim();
+            const cellB = b.querySelector(`td:nth-child(${getColIndexByKey(key)})`)?.textContent.trim();
+
+            let valA = cellA;
+            let valB = cellB;
+
+            if (numeric) {
+                valA = parseFloat(valA);
+                valB = parseFloat(valB);
+            } else {
+                valA = valA.toLowerCase();
+                valB = valB.toLowerCase();
+            }
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Перерисовываем
+        tbody.innerHTML = '';
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // Вспомогательная: получаем индекс столбца по ключу
+    function getColIndexByKey(key) {
+        const headers = table.querySelectorAll('th');
+        return Array.from(headers).findIndex(th => th.dataset.sort === key) + 1;
+    }
+
+    // Назначаем обработчики кликов
+    table.querySelectorAll('th[data-sort]').forEach(th => {
+        const key = th.dataset.sort;
+        const isNumeric = ['responses_total', 'responses_unread'].includes(key);
+        th.style.cursor = 'pointer';
+
+        th.addEventListener('click', () => {
+            sortData(key, isNumeric);
+        });
+    });
+});
+</script>
+
+<style>
+/* Стрелочка для сортировки */
+th.sorted::after {
+    content: " ▲";
+    display: inline-block;
+    font-size: 0.7em;
+}
+
+th[data-order="desc"]::after {
+    content: " ▼";
+}
+</style>
+
 {% endblock %}
