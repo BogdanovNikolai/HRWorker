@@ -12,6 +12,7 @@
 import json
 from typing import List
 from flask import Flask, request, render_template, redirect, url_for, send_file, g
+from markupsafe import Markup
 from data_manager import dm
 from redis_manager import redis_manager
 from utils.logger import setup_logger
@@ -136,55 +137,20 @@ def vacancy_responses(vacancy_id: int):
 
 
 @app.route("/resumes/<task_id>")
-def show_resumes(task_id: str, resume_negotiation_map: str = None):
-    # result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
-    # resumes = result.get("items", [])
-    # found = len(resumes)
+def show_resumes(task_id: str):
+    map_json = request.args.get("resume_negotiation_map")
 
-    # # Получаем description из Redis
-    # task_data = redis_manager.get_task_data(task_id)
-    # description = task_data.get("description", "") if task_data else ""
+    try:
+        negotiation_map = json.loads(map_json) if map_json else {}
+    except json.JSONDecodeError:
+        negotiation_map = {}
 
-    # # Обработка AI-оценки (можно оставить как есть)
-    # for resume in resumes:
-    #     candidate_exp = ""
+    safe_json = json.dumps(negotiation_map)
 
-    #     exp_data = resume.get("experience", [])
-    #     if isinstance(exp_data, str):
-    #         try:
-    #             exp_data = json.loads(exp_data)
-    #         except json.JSONDecodeError:
-    #             exp_data = []
-
-    #     for exp in exp_data:
-    #         if isinstance(exp, dict):
-    #             desc = exp.get("description", "").strip()
-    #             if desc:
-    #                 candidate_exp += desc + "\n\n"
-
-    #     if not candidate_exp:
-    #         candidate_exp = "Опыт работы не указан."
-
-    #     match_percent, match_reason = ai_evaluator.evaluate_candidate_match(
-    #         candidate_exp=candidate_exp,
-    #         vacancy_description=description
-    #     )
-
-    #     resume["match_percent"] = match_percent
-    #     resume["match_reason"] = match_reason
-
-    # return render_template(
-    #     "resume_list.html",
-    #     resumes=resumes,
-    #     found=found,
-    #     current_offset=0,
-    #     limit=1000,
-    #     task_id=task_id
-    # )
     return render_template(
         "resume_list.html",
         task_id=task_id,
-        resume_negotiation_map=resume_negotiation_map
+        resume_negotiation_map=Markup(safe_json)
     )
 
 

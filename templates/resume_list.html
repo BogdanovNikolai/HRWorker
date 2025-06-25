@@ -3,7 +3,7 @@
 {% block content %}
 
 <script type="application/json" id="resume-negotiation-map">
-  {{ resume_negotiation_map or '{}' }}
+  {{ resume_negotiation_map|safe }}
 </script>
 
 <div class="container">
@@ -117,7 +117,13 @@
       .then(data => {
         if (data.status === "ok") {
           alert("Отклики успешно помечены как прочитанные.");
-          // Опционально: можно удалить строки или обновить UI
+          
+          const selectedCheckboxes = tbody.querySelectorAll("input[type=checkbox]:checked");
+
+          selectedCheckboxes.forEach(checkbox => {
+            const row = checkbox.closest("tr");
+            row.classList.add("read"); // Добавляем класс
+          });
         } else {
           alert("Ошибка при пометке откликов.");
         }
@@ -253,6 +259,11 @@
 
   th[data-order="desc"]::after {
     content: " ▼";
+  }
+
+  .read {
+    background-color: #f8f9fa !important; /* Светло-серый фон */
+    opacity: 0.6;
   }
 </style>
 

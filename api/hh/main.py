@@ -593,9 +593,9 @@ class HHApiClient:
         """
         url = f"{self.base_url}/negotiations/read"
         headers = self.get_headers()
-        data = {"ids": negotiation_ids}
+        params = {"topic_id": negotiation_ids}
 
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, params=params)
         
         if response.status_code == 204:
             return True  # Успешно
