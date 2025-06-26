@@ -154,23 +154,56 @@ def show_resumes(task_id: str):
     )
 
 
-@app.route("/export/<task_id>/<format>")
+@app.route("/export/<task_id>/<format>", methods=["POST"])
 def export_resumes(task_id: str, format: str):
     """
-    Выгрузка резюме в формате CSV или XLSX.
-
-    Args:
-        task_id (str): Идентификатор задачи.
-        format (str): Формат выгрузки ('csv' или 'xlsx').
+    Выгрузка выбранных резюме в формате CSV или XLSX.
+    Принимает уже обработанные данные от клиента, но дополняет их опытом из БД.
     """
-    dm.get_task_resumes(task_id)  # Предварительная проверка существования задачи
-    exporter = None
+    resume_data = request.form.get("resume_data")
+    if not resume_data:
+        return "Нет данных для экспорта", 400
 
+    try:
+        # Предполагаем, что resume_data содержит список резюме с id и, возможно, другими полями
+        all_resumes = json.loads(resume_data)
+    except json.JSONDecodeError as e:
+        logger.error(f"Ошибка парсинга JSON: {e}")
+        return "Неверный формат данных", 400
+
+    # Извлекаем ID резюме из полученных данных
+    selected_ids = [r.get("id") for r in all_resumes if r.get("id")]
+
+    if not selected_ids:
+        return "Не указаны ID резюме", 400
+
+    # Получаем полные данные из БД по task_id и фильтруем по ID
+    full_resumes = dm.export_resumes(task_id)
+    full_resumes_dict = {r["id"]: r for r in full_resumes}
+
+    # Добавляем опыт и другие данные из БД в each resume
+    enriched_resumes = []
+    for resume in all_resumes:
+        resume_id = resume.get("id")
+        if resume_id in full_resumes_dict:
+            # Сохраняем существующие поля из all_resumes и дополняем данными из БД
+            enriched = {**resume, **full_resumes_dict[resume_id]}
+            enriched_resumes.append(enriched)
+        else:
+            # Если не найдено в БД — оставляем как есть (или можно пропустить)
+            enriched_resumes.append(resume)
+
+    # Проверяем наличие данных после enrich
+    if not enriched_resumes:
+        return "Нет данных для экспорта после дополнения", 400
+
+    # Экспортируем
+    exporter = None
     if format == "csv":
-        exporter = CSVExporter(data=dm.export_resumes(task_id))
+        exporter = CSVExporter(data=enriched_resumes)
         file_path = f"{conf.OUTPUT_DIR}/resumes_{task_id}.csv"
     elif format == "xlsx":
-        exporter = XLSXExporter(data=dm.export_resumes(task_id))
+        exporter = XLSXExporter(data=enriched_resumes)
         file_path = f"{conf.OUTPUT_DIR}/resumes_{task_id}.xlsx"
     else:
         return "Неподдерживаемый формат", 400
@@ -178,9 +211,7 @@ def export_resumes(task_id: str, format: str):
     exporter.save(file_path)
     return send_file(file_path, as_attachment=True)
 
-
 # === Роуты для тестирования и отладки ===
-
 @app.route("/manager")
 def get_manager_info():
     """
@@ -275,6 +306,8 @@ def get_resumes_json(task_id: str):
             "match_percent": match_percent,
             "alternate_url": resume.get("alternate_url"),
         })
+        
+        logger.info(f"app: {match_percent}")
 
     return {"resumes": processed_resumes}
 

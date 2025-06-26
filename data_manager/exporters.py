@@ -91,42 +91,97 @@ class Exporter:
     def prepare_data(self) -> List[Dict[str, Any]]:
         """
         Подготавливает данные для экспорта — оставляет только нужные поля,
-        включая опыт работы и ссылку на резюме.
+        корректно обрабатывает зарплату и город, вместо пустого значения ставит "—".
         """
         result = []
         for item in self.data:
-            # Опыт может быть как строкой, так и списком
-            experience = item.get("experience", [])
+            # --- Опыт работы ---
+            experience = item.get("experience", "")
+            experience_text = ""
+
             if isinstance(experience, str):
                 try:
-                    experience = json.loads(experience)
+                    # Попробуем распарсить JSON, если это возможно
+                    parsed_exp = json.loads(experience)
+                    if isinstance(parsed_exp, list):
+                        experience = parsed_exp
+                    else:
+                        experience = []
                 except json.JSONDecodeError:
                     experience = []
 
-            # Формируем текст опыта
-            experience_text = ""
-            for exp in experience:
-                company = exp.get("company", "")
-                position = exp.get("position", "")
-                description = exp.get("description", "").strip()
-                if company or position or description:
-                    experience_text += f"Компания: {company}\n"
-                    experience_text += f"Должность: {position}\n"
-                    experience_text += f"Описание: {description}\n\n"
+            if isinstance(experience, list):
+                for exp in experience:
+                    if isinstance(exp, dict):
+                        company = exp.get("company", "").strip()
+                        position = exp.get("position", "").strip()
+                        description = exp.get("description", "").strip()
 
-            # Формируем ФИО
+                        if company or position or description:
+                            experience_text += f"Компания: {company}\n"
+                            experience_text += f"Должность: {position}\n"
+                            experience_text += f"Описание: {description}\n\n"
+
+            # --- ФИО ---
             full_name = f"{item.get('first_name', '')} {item.get('last_name', '')}".strip()
 
+            # --- Город ---
+            area = item.get("area", None)
+            city = "—"
+            if isinstance(area, dict):
+                city = area.get("name", "—").strip()
+            elif isinstance(area, str):
+                try:
+                    area_dict = json.loads(area)
+                    if isinstance(area_dict, dict):
+                        city = area_dict.get("name", "—").strip()
+                except json.JSONDecodeError:
+                    pass
+
+            # --- Зарплата ---
+            salary_data = item.get("salary", None)
+            salary = "—"
+            if isinstance(salary_data, dict):
+                amount = salary_data.get("amount")
+                currency = salary_data.get("currency")
+                if amount is not None and currency:
+                    salary = f"{amount} {currency}"
+            elif isinstance(salary_data, str) and salary_data.strip():
+                try:
+                    salary_dict = json.loads(salary_data)
+                    if isinstance(salary_dict, dict):
+                        amount = salary_dict.get("amount")
+                        currency = salary_dict.get("currency")
+                        if amount is not None and currency:
+                            salary = f"{amount} {currency}"
+                except json.JSONDecodeError:
+                    pass
+
+            # --- Возраст ---
+            age = str(item.get("age", "")).strip() or "—"
+
+            # --- Должность ---
+            title = str(item.get("title", "")).strip() or "—"
+
+            # --- Ссылка на резюме ---
+            link = (item.get("alternate_url") or item.get("link") or "").strip()
+
+            # --- Соответствие (%) ---
+            match_percent = str(item.get("match_percent", "")).strip() or "—"
+
+            # --- Формируем запись ---
             simplified = {
-                "ID": item.get("id", ""),
-                "ФИО": full_name or "",
-                "Возраст": item.get("age", ""),
-                "Город": item.get("area", {}).get("name", ""),
-                "Должность": item.get("title", ""),
-                "Зарплата": f"{item.get('salary', {}).get('amount', '')} {item.get('salary', {}).get('currency', '')}".strip() or "",
+                "ID": str(item.get("id", "")).strip() or "—",
+                "ФИО": full_name or "—",
+                "Возраст": age,
+                "Город": city,
+                "Должность": title,
+                "Зарплата": salary,
                 "Опыт": experience_text.strip(),
-                "Ссылка": item.get("alternate_url", "") or item.get("link", "")
+                "Соответствие (%)": match_percent,
+                "Ссылка": link,
             }
+
             result.append(simplified)
         return result
 

@@ -6,6 +6,14 @@
   {{ resume_negotiation_map|safe }}
 </script>
 
+<!-- Формы для экспорта -->
+<form id="export-form-xlsx" method="post" action="{{ url_for('export_resumes', task_id=task_id, format='xlsx') }}">
+  <input type="hidden" name="resume_data" id="export-resume-data-xlsx">
+</form>
+<form id="export-form-csv" method="post" action="{{ url_for('export_resumes', task_id=task_id, format='csv') }}">
+  <input type="hidden" name="resume_data" id="export-resume-data-csv">
+</form>
+
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Новые кандидаты</h2>
@@ -19,12 +27,8 @@
 
   <!-- Кнопки экспорта -->
   <div class="mb-3 d-flex gap-2">
-    <form method="get" action="{{ url_for('export_resumes', task_id=task_id, format='xlsx') }}">
-      <button type="submit" class="btn btn-success">Экспорт в Excel</button>
-    </form>
-    <form method="get" action="{{ url_for('export_resumes', task_id=task_id, format='csv') }}">
-      <button type="submit" class="btn btn-outline-secondary">Экспорт в CSV</button>
-    </form>
+    <button type="button" onclick="submitExport('xlsx')" class="btn btn-success">Экспорт в Excel</button>
+    <button type="button" onclick="submitExport('csv')" class="btn btn-outline-secondary">Экспорт в CSV</button>
   </div>
 
   <!-- Таблица резюме -->
@@ -49,6 +53,31 @@
     </table>
   </div>
 </div>
+
+<script>
+  // Глобальная переменная для хранения данных резюме
+  let allResumes = [];
+
+  function submitExport(format) {
+    const checkboxes = document.querySelectorAll("input[name='resume_ids']:checked");
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+
+    if (ids.length === 0) {
+      alert("Выберите хотя бы одно резюме для экспорта.");
+      return;
+    }
+
+    // Фильтруем данные только по выбранным ID
+    const selectedData = allResumes.filter(r => ids.includes(r.id));
+
+    // Передаем JSON в форму
+    const input = document.getElementById(`export-resume-data-${format}`);
+    input.value = JSON.stringify(selectedData);
+
+    // Отправляем форму
+    document.getElementById(`export-form-${format}`).submit();
+  }
+</script>
 
 <script>
   // Функция преобразования месяцев в "X лет Y мес"
@@ -149,6 +178,7 @@
         }
 
         resumesData = data.resumes;
+        allResumes = [...resumesData]; // Сохраняем копию для экспорта
         foundCounter.textContent = "Найдено: " + resumesData.length;
         renderTable(resumesData);
         setupSortHandlers();
