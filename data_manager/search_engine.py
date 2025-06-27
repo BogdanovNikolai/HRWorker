@@ -84,7 +84,7 @@ class SearchEngine:
 
     def save_to_cache(self, resume_data: Dict[str, Any]) -> None:
         """
-        Сохраняет резюме в кэш (БД) без изменений.
+        Сохраняет резюме в БД без изменений.
         """
         if not resume_data.get("id"):
             logger.warning("Резюме без ID не может быть сохранено")
@@ -97,7 +97,7 @@ class SearchEngine:
         try:
             self.resume_repo.create_resume(resume_data)
         except Exception as e:
-            logger.error(f"Ошибка при сохранении резюме в кэш: {e}")
+            logger.error(f"Ошибка при сохранении резюме в БД: {e}")
 
     def _format_cached_resume(self, db_resume: Any) -> Dict[str, Any]:
         try:
