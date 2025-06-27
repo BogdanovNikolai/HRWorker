@@ -37,7 +37,7 @@ class AIEvaluator:
         exp_short = (candidate_exp[:200] + '...') if len(candidate_exp) > 200 else candidate_exp
         desc_short = (vacancy_description[:200] + '...') if len(vacancy_description) > 200 else vacancy_description
 
-        logger.info(f"[AI] Начинаем оценку:\nВАКАНСИЯ: {desc_short}\nОПЫТ: {exp_short}")
+        logger.debug(f"[AI] Начинаем оценку:\nВАКАНСИЯ: {desc_short}\nОПЫТ: {exp_short}")
 
         if not candidate_exp or not vacancy_description:
             logger.warning("[AI] Недостаточно данных для анализа")
@@ -75,12 +75,12 @@ class AIEvaluator:
         }
 
         try:
-            logger.info("[AI] Отправляем запрос к DeepSeek API")
+            logger.debug("[AI] Отправляем запрос к DeepSeek API")
             response = requests.post(url, headers=headers, json=payload, timeout=15)
             response.raise_for_status()
             content = response.json()['choices'][0]['message']['content'].strip()
             duration = time.time() - start_time
-            logger.info(f"[AI] Получен ответ за {duration:.2f} сек: {content}")
+            logger.debug(f"[AI] Получен ответ за {duration:.2f} сек: {content}")
 
             parts = content.split(maxsplit=1)
             percent = float(parts[0].replace("%", "").strip())

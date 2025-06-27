@@ -10,37 +10,43 @@
 """
 
 import json
-from typing import List
 from flask import Flask, request, render_template, redirect, url_for, send_file, g
 from markupsafe import Markup
 from data_manager import dm
 from redis_manager import redis_manager
 from utils.logger import setup_logger
+from utils.decorators import log_function_call
 from config import conf
 from data_manager.exporters import CSVExporter, XLSXExporter
 from ai import ai_evaluator
 from helpers import area_manager
+
+
 
 logger = setup_logger(__name__)
 app = Flask(__name__)
 regions = area_manager.areas
 
 
+
+@log_function_call
 @app.route("/")
 def index():
     """
     Главная страница.
     Перенаправляет на /search.
     """
+    
     return redirect(url_for("search"))
 
-
+@log_function_call
 @app.route("/search")
 def search():
     """
     Страница поиска резюме по ключевым словам.
     После поиска перенаправляет на /resumes/<task_id>
     """
+    
     keywords = request.args.get("keywords", "").strip()
     salary_to = request.args.get("salary_to", type=int)
     region = request.args.getlist('region')
@@ -48,16 +54,11 @@ def search():
     description = request.args.get("description", "").strip()
     total = request.args.get("total", default=20, type=int)
 
-    logger.info(region)
-
     if not keywords:
         return render_template("search.html", error="Введите ключевые слова для поиска", regions=regions)
 
     if not region:
         return render_template("search.html", error="Выберите регион для поиска", regions=regions)
-
-    # Ограничиваем максимальное количество на странице
-    per_page = 50
 
     try:
         task_id = dm.search_resumes(
@@ -66,7 +67,6 @@ def search():
             region=region,
             not_living=not_living,
             total=total,
-            per_page=per_page,
             description=description
         )
         return redirect(url_for("show_resumes", task_id=task_id))
@@ -77,7 +77,7 @@ def search():
         logger.error(f"Неожиданная ошибка при поиске: {e}")
         return render_template("search.html", error="Произошла ошибка при выполнении поиска", regions=regions)
 
-
+@log_function_call
 @app.route("/vacancies")
 def vacancies():
     """
@@ -91,7 +91,7 @@ def vacancies():
         return render_template("vacancies.html", error="Неверный формат данных от HH")
 
     vacancy_list = []
-    for v in raw_vacancies:
+    for i, v in enumerate(raw_vacancies, start=1):
         if not isinstance(v, dict):
             logger.warning(f"Найден неверный элемент: {v!r}")
             continue
@@ -99,7 +99,7 @@ def vacancies():
         v_id = v.get("id")
         vacancy = dm.get_vacancy_by_id(v_id)
         negotiations = dm.get_negotiations_by_vacancy(v_id)
-        logger.info(f"Получение откликов по вакансии {v_id}")
+        logger.info(f"Получение откликов по вакансии {i}/{len(raw_vacancies)}")
         city = vacancy.get("address", {}).get("city", "") if vacancy else ""
 
         total = len(negotiations)
@@ -116,7 +116,7 @@ def vacancies():
 
     return render_template("vacancies.html", vacancies=vacancy_list)
 
-
+@log_function_call
 @app.route("/vacancies/<int:vacancy_id>")
 def vacancy_responses(vacancy_id: int):
     """
@@ -125,7 +125,7 @@ def vacancy_responses(vacancy_id: int):
     """
     resume_ids, negotiation_ids = dm.get_new_resume_ids_from_negotiations(vacancy_id)
 
-    # маппинг resume_id: negotiation_id
+    # маппинг resume_id: negotiation_id для передачи на фронт
     resume_to_negotiation = dict(zip(resume_ids, negotiation_ids))
     
     vacancy = dm.get_vacancy_by_id(vacancy_id)
@@ -135,7 +135,7 @@ def vacancy_responses(vacancy_id: int):
 
     return redirect(url_for("show_resumes", task_id=task_id, resume_negotiation_map=json.dumps(resume_to_negotiation)))
 
-
+@log_function_call
 @app.route("/resumes/<task_id>")
 def show_resumes(task_id: str):
     map_json = request.args.get("resume_negotiation_map")
@@ -153,7 +153,7 @@ def show_resumes(task_id: str):
         resume_negotiation_map=Markup(safe_json)
     )
 
-
+@log_function_call
 @app.route("/export/<task_id>/<format>", methods=["POST"])
 def export_resumes(task_id: str, format: str):
     """
@@ -211,17 +211,9 @@ def export_resumes(task_id: str, format: str):
     exporter.save(file_path)
     return send_file(file_path, as_attachment=True)
 
-# === Роуты для тестирования и отладки ===
-@app.route("/manager")
-def get_manager_info():
-    """
-    Получает информацию о текущем менеджере.
-    """
-    manager = dm.get_current_manager()
-    return manager or {"error": "Не удалось получить данные"}
-
-
-@app.route("/limits")
+#   <== API-эндпоинты ==>
+@log_function_call
+@app.route("/api/limits")
 def get_resume_limits():
     manager_id = dm.get_current_manager_id()
     if not manager_id:
@@ -241,7 +233,7 @@ def get_resume_limits():
         "limits": simplified
     }
 
-
+@log_function_call
 @app.before_request
 def load_resume_limits():
     try:
@@ -255,9 +247,7 @@ def load_resume_limits():
         logger.warning(f"Не удалось загрузить лимиты: {e}")
         g.resume_limits = {"error": "Ошибка загрузки лимитов"}
 
-
-# === Новый API-роут для AJAX ===
-
+@log_function_call
 @app.route("/api/resumes/<task_id>")
 def get_resumes_json(task_id: str):
     result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
@@ -306,11 +296,10 @@ def get_resumes_json(task_id: str):
             "match_percent": match_percent,
             "alternate_url": resume.get("alternate_url"),
         })
-        
-        logger.info(f"app: {match_percent}")
 
     return {"resumes": processed_resumes}
 
+@log_function_call
 @app.route("/api/read_negotiations", methods=["POST"])
 def read_negotiations():
     data = request.get_json()

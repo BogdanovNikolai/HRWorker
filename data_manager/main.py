@@ -15,7 +15,7 @@ from utils.logger import setup_logger
 from threading import Thread
 from data_manager.task_tracker import TaskTracker
 
-logger = setup_logger()
+logger = setup_logger(__name__)
 
 
 class DataManager:

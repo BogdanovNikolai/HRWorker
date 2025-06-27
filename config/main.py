@@ -58,8 +58,8 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")
 
     # === Логирование ===
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    LOG_FILE = os.getenv("LOG_FILE", "app.log")
+    LOG_LEVEL = os.getenv("LOG_LEVEL")
+    LOG_FILE = os.getenv("LOG_FILE")
 
     # === Директории ===
     OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")

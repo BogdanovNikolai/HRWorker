@@ -1,7 +1,7 @@
 import functools
 import inspect
 import logging
-from logger import setup_logger
+from .logger import setup_logger
 
 _cached_logger = None
 

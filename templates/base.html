@@ -57,7 +57,7 @@
 <!-- === Скрипт для обновления лимитов === -->
 <script>
 function fetchResumeLimits() {
-    fetch('/limits')
+    fetch('/api/limits')
         .then(response => response.json())
         .then(data => {
             const limitBadge = document.getElementById("limit-badge");

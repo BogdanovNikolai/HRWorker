@@ -238,18 +238,18 @@ class HHApiClient:
         else:
             relocation = "living"
         
-        logger.info(len(all_items))
-        logger.info(total)
+        logger.debug(len(all_items))
+        logger.debug(total)
 
         while len(all_items) < total:
             remaining = total - len(all_items)
             current_per_page = min(per_page, remaining)
             keywords_list = [k.strip() for k in keywords.split() if k.strip()]
-            logger.info(f"len(all_items): {len(all_items)}")
-            logger.info(f"total: {total}")
-            logger.info(f"remaining: {remaining}")
-            logger.info(f"current_per_page: {current_per_page}")
-            logger.info(f"keyworkds: {type(keywords_list), keywords_list}")
+            logger.debug(f"len(all_items): {len(all_items)}")
+            logger.debug(f"total: {total}")
+            logger.debug(f"remaining: {remaining}")
+            logger.debug(f"current_per_page: {current_per_page}")
+            logger.debug(f"keyworkds: {type(keywords_list), keywords_list}")
 
             # Формируем параметры запроса без лишних полей
             params = {
@@ -270,7 +270,7 @@ class HHApiClient:
             url = f"{self.base_url}/resumes"
             encoded_params = urlencode(params, doseq=True)
             full_url = f"{url}?{encoded_params}"
-            logger.info(f"Выполняется GET-запрос: {full_url}")
+            logger.info(f"Выполняется GET-запрос к API HeadHunter: {full_url}")
 
             # Проверяем кэш
             cached = self._get_cached_response(url, params)
@@ -285,7 +285,7 @@ class HHApiClient:
                 response = requests.get(url, headers=headers, params=params)
                 response.raise_for_status()
                 result = response.json()
-                logger.info(f"result: {result}")
+                logger.debug(f"result: {result}")
 
                 # Просто добавляем найденные резюме без обработки
                 all_items.extend(result.get("items", []))
@@ -388,14 +388,14 @@ class HHApiClient:
         while True:
             params["page"] = page
 
-            logger.info(f"Запрашиваем страницу {page}")
+            logger.debug(f"Запрашиваем страницу {page}")
 
             # Попробуем получить из кэша
             cached = self._get_cached_response(url, params)
             if cached and isinstance(cached, dict):
                 items = cached.get("items", [])
                 all_vacancies.extend(items)
-                logger.info(f"Из кэша получено {len(items)} вакансий, всего: {len(all_vacancies)}")
+                logger.debug(f"Из кэша получено {len(items)} вакансий, всего: {len(all_vacancies)}")
                 page += 1
                 continue
 
@@ -408,10 +408,10 @@ class HHApiClient:
                 all_vacancies.extend(items)
                 self._save_to_cache(url, params, data)
 
-                logger.info(f"Получено {len(items)} вакансий со страницы {page}, всего: {len(all_vacancies)}")
+                logger.debug(f"Получено {len(items)} вакансий со страницы {page}, всего: {len(all_vacancies)}")
 
                 if len(items) < per_page:
-                    logger.info("Достигнут конец списка вакансий.")
+                    logger.debug("Достигнут конец списка вакансий.")
                     break
 
                 page += 1
@@ -450,7 +450,7 @@ class HHApiClient:
         Returns:
             list[dict]: Полный список откликов.
         """
-        logger.info(f"Получаем отклики к вакансии {vacancy_id}")
+        logger.debug(f"Получаем отклики к вакансии {vacancy_id}")
 
         url = f"{self.base_url}/negotiations/response"
         headers = self.get_headers()
@@ -465,14 +465,14 @@ class HHApiClient:
         while True:
             params["page"] = page
 
-            logger.info(f"Запрашиваем страницу {page} для вакансии {vacancy_id}")
+            logger.debug(f"Запрашиваем страницу {page} для вакансии {vacancy_id}")
 
             # Попробуем получить из кэша
             cached = self._get_cached_response(url, params)
             if cached and isinstance(cached, dict):
                 items = cached.get("items", [])
                 all_negotiations.extend(items)
-                logger.info(f"Из кэша получено {len(items)} откликов со страницы {page}, всего: {len(all_negotiations)}")
+                logger.debug(f"Из кэша получено {len(items)} откликов со страницы {page}, всего: {len(all_negotiations)}")
                 page += 1
                 continue
 
@@ -485,10 +485,10 @@ class HHApiClient:
                 all_negotiations.extend(items)
                 self._save_to_cache(url, params, data)
 
-                logger.info(f"Получено {len(items)} откликов со страницы {page}, всего: {len(all_negotiations)}")
+                logger.debug(f"Получено {len(items)} откликов со страницы {page}, всего: {len(all_negotiations)}")
 
                 if len(items) < per_page:
-                    logger.info(f"Достигнут конец списка откликов для вакансии {vacancy_id}")
+                    logger.debug(f"Достигнут конец списка откликов для вакансии {vacancy_id}")
                     break
 
                 page += 1
@@ -497,7 +497,7 @@ class HHApiClient:
                 logger.error(f"Ошибка при получении откликов: {e}")
                 raise
 
-        logger.info(f"Всего получено {len(all_negotiations)} откликов по вакансии {vacancy_id}")
+        logger.debug(f"Всего получено {len(all_negotiations)} откликов по вакансии {vacancy_id}")
 
         return all_negotiations
 
@@ -541,7 +541,7 @@ class HHApiClient:
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             limits_data = response.json()
-            logger.info(f"Получены лимиты просмотра резюме: {limits_data}")
+            logger.debug(f"Получены лимиты просмотра резюме: {limits_data}")
 
             # Проверяем, не исчерпан ли лимит
             resume_left = limits_data.get("left", {}).get("resume_view", 0)
@@ -577,7 +577,7 @@ class HHApiClient:
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             manager_data = response.json()
-            logger.info(f"Получены данные текущего менеджера")
+            logger.debug(f"Получены данные текущего менеджера")
             self._save_to_cache(url, params, manager_data)
             return manager_data
         except requests.RequestException as e:

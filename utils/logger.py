@@ -9,6 +9,7 @@ import logging
 import os
 from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
+from config import conf
 
 def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: str = "INFO") -> logging.Logger:
     """
@@ -37,7 +38,8 @@ def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: st
     logger.addHandler(console_handler)
 
     # Файловый вывод
-    file_path = log_file or os.getenv("LOG_FILE")
+    print(conf.LOG_FILE)
+    file_path = log_file or conf.LOG_FILE
     if not file_path:
         file_path = "logs/app.log"
 
