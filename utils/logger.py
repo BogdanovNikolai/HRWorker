@@ -7,7 +7,7 @@
 
 import logging
 import os
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: str = "INFO") -> logging.Logger:
@@ -37,9 +37,22 @@ def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: st
     logger.addHandler(console_handler)
 
     # Файловый вывод
-    file_path = log_file or os.getenv("LOG_FILE", "app.log")
+    file_path = log_file or os.getenv("LOG_FILE")
+    if not file_path:
+        file_path = "logs/app.log"
+
+    # Создаём папку, если её нет
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
     try:
-        file_handler = RotatingFileHandler(file_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding='utf-8')
+        file_handler = TimedRotatingFileHandler(
+            filename=file_path,
+            when='H',
+            interval=12,
+            backupCount=90,
+            encoding='utf-8',
+            delay=False
+        )
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     except Exception as e:
