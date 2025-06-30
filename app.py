@@ -9,6 +9,7 @@
 - /export/<task_id> — выгрузка выбранных резюме в формате CSV/XLSX
 """
 
+from datetime import datetime
 import json
 from flask import Flask, request, render_template, redirect, url_for, send_file, g
 from markupsafe import Markup
@@ -20,13 +21,55 @@ from config import conf
 from data_manager.exporters import CSVExporter, XLSXExporter
 from ai import ai_evaluator
 from helpers import area_manager
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+import pytz
 
 
 
 logger = setup_logger(__name__)
 app = Flask(__name__)
 regions = area_manager.areas
+scheduler = None
 
+
+
+def init_scheduler():
+    global scheduler
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(dm.update_vacancies_cache, 'cron', hour=8)
+    scheduler.start()
+    atexit.register(lambda: scheduler.shutdown())
+
+def check_and_update_vacancies_cache_on_startup():
+    """
+    Проверяет, есть ли в Redis кэш вакансий.
+    Если его нет или он был создан до 8:00 утра текущего дня — обновляет его.
+    """
+    cache_key = "cached_company_vacancies"
+    current_time = datetime.now(pytz.timezone("Europe/Moscow"))
+    today_8am = current_time.replace(hour=8, minute=0, second=0, microsecond=0)
+
+    cached_data = dm.redis_manager.client.get(cache_key)
+
+    if not cached_data:
+        logger.warning("Кэш вакансий не найден. Запуск фонового обновления...")
+        dm.update_vacancies_cache()
+        return
+
+    try:
+        ttl = dm.redis_manager.client.ttl(cache_key)
+        if ttl < 0:
+            logger.warning("Ключ в Redis просрочен. Обновляем кэш...")
+            dm.update_vacancies_cache()
+        elif current_time > today_8am and ttl < (24 * 60 * 60 - 5 * 60):
+            logger.info("Кэш существует, но возможно устарел относительно сегодняшнего 8:00. Обновляем...")
+            dm.update_vacancies_cache()
+        else:
+            logger.info("Кэш вакансий актуален.")
+    except Exception as e:
+        logger.error(f"Ошибка при проверке актуальности кэша: {e}. Выполняем принудительное обновление...")
+        dm.update_vacancies_cache()
 
 
 @log_function_call
@@ -81,40 +124,26 @@ def search():
 @app.route("/vacancies")
 def vacancies():
     """
-    Получает список вакансий компании и количество откликов по каждой.
+    Отображает список вакансий из кэша Redis.
     """
+    cache_key = "cached_company_vacancies"
+    cached_data = dm.redis_manager.client.get(cache_key)
 
-    raw_vacancies = dm.get_company_vacancies()
-
-    if not isinstance(raw_vacancies, list):
-        logger.error(f"Ожидается список вакансий, получено: {type(raw_vacancies)}")
-        return render_template("vacancies.html", error="Неверный формат данных от HH")
-
-    vacancy_list = []
-    for i, v in enumerate(raw_vacancies, start=1):
-        if not isinstance(v, dict):
-            logger.warning(f"Найден неверный элемент: {v!r}")
-            continue
-
-        v_id = v.get("id")
-        vacancy = dm.get_vacancy_by_id(v_id)
-        negotiations = dm.get_negotiations_by_vacancy(v_id)
-        logger.info(f"Получение откликов по вакансии {i}/{len(raw_vacancies)}")
-        city = vacancy.get("address", {}).get("city", "") if vacancy else ""
-
-        total = len(negotiations)
-        unread = sum(1 for n in negotiations if n.get("has_updates", False))
-
-        vacancy_list.append({
-            "title": v.get("name", "Без названия"),
-            "id": v_id,
-            "city": city,
-            "responses_total": total,
-            "responses_unread": unread,
-            "url": v.get("alternate_url", "#")
-        })
-
-    return render_template("vacancies.html", vacancies=vacancy_list)
+    if cached_data:
+        try:
+            vacancy_list = json.loads(cached_data)
+            return render_template("vacancies.html", vacancies=vacancy_list)
+        except json.JSONDecodeError as e:
+            logger.error(f"Ошибка декодирования JSON из кэша: {e}")
+            return render_template("vacancies.html", error="Не удалось загрузить кэшированные данные")
+    else:
+        return render_template("vacancies.html", error="Данные о вакансиях ещё не загружены. Попробуйте позже.")
+    
+@app.route("/update-vacancies-cache")
+def manual_update_vacancies():
+    """Ручное обновление кэша вакансий."""
+    dm.update_vacancies_cache()
+    return "Кэш вакансий обновлён."
 
 @log_function_call
 @app.route("/vacancies/<int:vacancy_id>")

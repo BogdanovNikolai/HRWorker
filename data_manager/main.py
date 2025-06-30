@@ -4,6 +4,7 @@
 Содержит класс DataManager — точку входа для всех операций с данными.
 """
 
+import json
 from typing import List, Dict, Any, Optional, Tuple
 from api.hh.main import HHApiClient
 from data_manager.resume_processor import ResumeProcessor
@@ -247,3 +248,44 @@ class DataManager:
         Помечает список откликов как прочитанные.
         """
         return self.search_engine.read_negotiations(negotiation_ids)
+
+    def update_vacancies_cache(self):
+        """
+        Обновляет кэш вакансий в Redis.
+        Вызывается ежедневно в 8:00 через APScheduler.
+        """
+        logger.info("Начинаем фоновое обновление кэша вакансий...")
+
+        raw_vacancies = self.get_company_vacancies()
+
+        if not isinstance(raw_vacancies, list):
+            logger.error(f"Ожидается список вакансий, получено: {type(raw_vacancies)}")
+            return {"error": "Неверный формат данных от HH"}
+
+        vacancy_list = []
+        for i, v in enumerate(raw_vacancies, start=1):
+            if not isinstance(v, dict):
+                logger.warning(f"Найден неверный элемент: {v!r}")
+                continue
+
+            v_id = v.get("id")
+            vacancy = self.get_vacancy_by_id(v_id)
+            negotiations = self.get_negotiations_by_vacancy(v_id)
+            city = vacancy.get("address", {}).get("city", "") if vacancy else ""
+
+            total = len(negotiations)
+            unread = sum(1 for n in negotiations if n.get("has_updates", False))
+
+            vacancy_list.append({
+                "title": v.get("name", "Без названия"),
+                "id": v_id,
+                "city": city,
+                "responses_total": total,
+                "responses_unread": unread,
+                "url": v.get("alternate_url", "#")
+            })
+
+        # Сохраняем в Redis под фиксированным ключом
+        cache_key = "cached_company_vacancies"
+        self.redis_manager.client.setex(cache_key, 60 * 60 * 24, json.dumps(vacancy_list, ensure_ascii=False))  # TTL: 24 часа
+        logger.info(f"Кэш вакансий обновлён: {len(vacancy_list)} вакансий сохранено в Redis.")
