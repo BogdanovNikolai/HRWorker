@@ -18,7 +18,7 @@ from redis_manager import redis_manager
 from utils.logger import setup_logger
 from utils.decorators import log_function_call
 from config import conf
-from data_manager.exporters import CSVExporter, XLSXExporter
+from data_manager.exporters import CSVExporter, XLSXExporter, EStaffExporter
 from ai import ai_evaluator
 from helpers import area_manager
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -62,9 +62,9 @@ def check_and_update_vacancies_cache_on_startup():
         if ttl < 0:
             logger.warning("Ключ в Redis просрочен. Обновляем кэш...")
             dm.update_vacancies_cache()
-        elif current_time > today_8am and ttl < (24 * 60 * 60 - 5 * 60):
-            logger.info("Кэш существует, но возможно устарел относительно сегодняшнего 8:00. Обновляем...")
-            dm.update_vacancies_cache()
+        # elif current_time > today_8am and ttl < (24 * 60 * 60 - 5 * 60):
+        #     logger.info("Кэш существует, но возможно устарел относительно сегодняшнего 8:00. Обновляем...")
+        #     dm.update_vacancies_cache()
         else:
             logger.info("Кэш вакансий актуален.")
     except Exception as e:
@@ -234,6 +234,9 @@ def export_resumes(task_id: str, format: str):
     elif format == "xlsx":
         exporter = XLSXExporter(data=enriched_resumes)
         file_path = f"{conf.OUTPUT_DIR}/resumes_{task_id}.xlsx"
+    elif format == "estaff":
+        exporter = EStaffExporter.export(resume_ids=selected_ids)
+        return "Экспортировано в E-Staff", 200
     else:
         return "Неподдерживаемый формат", 400
 

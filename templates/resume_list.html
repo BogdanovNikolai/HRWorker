@@ -13,6 +13,9 @@
 <form id="export-form-csv" method="post" action="{{ url_for('export_resumes', task_id=task_id, format='csv') }}">
   <input type="hidden" name="resume_data" id="export-resume-data-csv">
 </form>
+<form id="export-form-estaff" method="post" action="{{ url_for('export_resumes', task_id=task_id, format='estaff') }}">
+  <input type="hidden" name="resume_data" id="export-resume-data-estaff">
+</form>
 
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-4">
@@ -29,6 +32,7 @@
   <div class="mb-3 d-flex gap-2">
     <button type="button" onclick="submitExport('xlsx')" class="btn btn-success">Экспорт в Excel</button>
     <button type="button" onclick="submitExport('csv')" class="btn btn-outline-secondary">Экспорт в CSV</button>
+    <button type="button" onclick="submitExport('estaff')" class="btn btn-outline-info">Экспорт в E-Staff</button>
   </div>
 
   <!-- Таблица резюме -->

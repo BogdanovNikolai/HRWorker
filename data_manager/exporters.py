@@ -15,10 +15,11 @@ from data_manager.resume_processor import ResumeProcessor
 from database.repository import ResumeRepository
 from database.session import get_db
 from utils.logger import setup_logger
+from tests.scripts.estaff import EStaffBot 
 
 
 logger = setup_logger(__name__)
-
+estaff_bot = EStaffBot()
 
 class Exporter:
     """
@@ -290,3 +291,10 @@ class XLSXExporter(Exporter):
             logger.error(f"Ошибка при сохранении XLSX: {e}")
             print(f"Ошибка при сохранении XLSX: {e}")
             raise
+
+class EStaffExporter:
+    def __init__():
+        pass
+    
+    def export(resume_ids):
+        estaff_bot.process_resumes(resume_ids=resume_ids)
