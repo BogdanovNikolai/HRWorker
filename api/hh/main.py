@@ -10,6 +10,7 @@
 Все методы используют токен из config.conf.HH_ACCESS_TOKENS.
 """
 
+import re
 import time
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
@@ -23,6 +24,10 @@ from redis_manager import redis_manager
 from ai import ai_evaluator
 
 logger = setup_logger(__name__)
+
+def parse_keywords(keywords: str) -> List[str]:
+    # Ищем либо "фразы в кавычках", либо отдельные слова
+    return re.findall(r'"[^"]+"|\S+', keywords)
 
 def retry_on_limit_exceeded(max_retries=3, delay=2, backoff=2):
     def decorator(func):
@@ -244,16 +249,18 @@ class HHApiClient:
         while len(all_items) < total:
             remaining = total - len(all_items)
             current_per_page = min(per_page, remaining)
-            keywords_list = [k.strip() for k in keywords.split() if k.strip()]
+            # keywords_list = [k.strip() for k in keywords.split() if k.strip()]
+            keywords_list = parse_keywords(keywords)
+            keywords_query = ' '.join(keywords_list)
             logger.debug(f"len(all_items): {len(all_items)}")
             logger.debug(f"total: {total}")
             logger.debug(f"remaining: {remaining}")
             logger.debug(f"current_per_page: {current_per_page}")
-            logger.debug(f"keyworkds: {type(keywords_list), keywords_list}")
+            logger.info(f"keyworkds: {type(keywords_list), keywords_list}")
 
             # Формируем параметры запроса без лишних полей
             params = {
-                "text": keywords_list,
+                "text": keywords_query,
                 "relocation": relocation,
                 "job_search_status": ["active_search", "looking_for_offers"],
                 "area": region,
