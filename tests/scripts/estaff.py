@@ -6,10 +6,10 @@ from config import conf
 
 class EStaffBot:
     def __init__(self, 
-                 estaff_module_icon,
-                 estaff_module_icon_2,
-                 estaff_save,
-                 estaff_save_duble,
+                 estaff_module_icon=conf.ESTAFF_MODULE_ICON,
+                 estaff_module_icon_2=conf.ESTAFF_MODULE_ICON_2,
+                 estaff_save=conf.ESTAFF_SAVE,
+                 estaff_save_duble=conf.ESTAFF_SAVE_DUBLE,
                  base_url="https://www.hh.ru/resume/",
                 ):
         self.estaff_module_icon=conf.ESTAFF_MODULE_ICON
