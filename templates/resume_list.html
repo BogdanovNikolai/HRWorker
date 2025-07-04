@@ -210,7 +210,11 @@
           <td>${resume.title || '-'}</td>
           <td>${resume.salary}</td>
           <td>${formatExperience(resume.total_experience)}</td>
-          <td>${resume.match_percent ? resume.match_percent + '%' : '<span class="text-muted">—</span>'}</td>
+          <td>${
+            resume.match_percent !== null && resume.match_percent !== undefined
+              ? resume.match_percent + '%'
+              : '<span class="text-muted">—</span>'
+          }</td>
           <td>${resume.alternate_url ? `<a href="${resume.alternate_url}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>` : '<span class="text-muted">—</span>'}</td>
           <td class="text-center">
             <div class="form-check form-check-inline m-0">

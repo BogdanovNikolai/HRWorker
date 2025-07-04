@@ -312,7 +312,6 @@ def get_resumes_json(task_id: str):
             vacancy_description=description
         )
         
-        logger.info(f"Кандидат добавлен {count}/{len(resumes)}")
         count += 1
 
         processed_resumes.append({
