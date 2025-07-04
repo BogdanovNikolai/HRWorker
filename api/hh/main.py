@@ -209,56 +209,29 @@ class HHApiClient:
         salary_to: Optional[int] = None,
         region: List[str] = ["113"],
         not_living: bool = False,
-        total: int = 1,  # Изменено на 1
+        total: int = 1,
         per_page: int = 50,
         description: Optional[str] = ""
     ) -> Dict[str, Any]:
-        """
-        Выполняет поиск резюме с поддержкой пагинации.
-
-        Args:
-            keywords (str): Ключевые слова для поиска. Обязательный параметр.
-            salary_to (Optional[int]): Максимальная зарплата.
-            region (Optional[str]): Регион. Обязательный параметр.
-            total (int): Общее количество резюме, которое нужно получить (по умолчанию 1).
-            per_page (int): Максимальное количество на одной странице (до 50).
-
-        Returns:
-            Dict[str, Any]: Словарь с ключами 'found' и 'items'.
-        """
         if per_page > 50:
             raise ValueError("Параметр 'per_page' не может быть больше 50.")
-
         if not keywords or not keywords.strip():
             raise ValueError("Параметр 'keywords' обязателен и не может быть пустым.")
-
         if region is None:
             raise ValueError("Параметр 'region' обязателен.")
 
         all_items = []
         page = 0
-        
-        if not_living:
-            relocation = "living_or_relocation"
-        else:
-            relocation = "living"
-        
-        logger.debug(len(all_items))
-        logger.debug(total)
+        empty_or_few_count = 0  # Счётчик подряд идущих неполных страниц
+
+        relocation = "living_or_relocation" if not_living else "living"
 
         while len(all_items) < total:
             remaining = total - len(all_items)
             current_per_page = min(per_page, remaining)
-            # keywords_list = [k.strip() for k in keywords.split() if k.strip()]
             keywords_list = parse_keywords(keywords)
             keywords_query = ' '.join(keywords_list)
-            logger.debug(f"len(all_items): {len(all_items)}")
-            logger.debug(f"total: {total}")
-            logger.debug(f"remaining: {remaining}")
-            logger.debug(f"current_per_page: {current_per_page}")
-            logger.info(f"keyworkds: {type(keywords_list), keywords_list}")
 
-            # Формируем параметры запроса без лишних полей
             params = {
                 "text": keywords_query,
                 "relocation": relocation,
@@ -268,36 +241,49 @@ class HHApiClient:
                 "per_page": current_per_page
             }
 
-            # Добавляем salary_to только если он указан
             if salary_to is not None:
                 params["salary_to"] = salary_to
                 params["label"] = "only_with_salary"
 
-            # Логируем URL
             url = f"{self.base_url}/resumes"
             encoded_params = urlencode(params, doseq=True)
             full_url = f"{url}?{encoded_params}"
             logger.info(f"Выполняется GET-запрос к API HeadHunter: {full_url}")
 
-            # Проверяем кэш
             cached = self._get_cached_response(url, params)
             if cached:
-                all_items.extend(cached.get("items", []))
+                items = cached.get("items", [])
+                all_items.extend(items)
                 page += 1
+                # Проверка количества возвращённых резюме
+                if len(items) < current_per_page:
+                    empty_or_few_count += 1
+                else:
+                    empty_or_few_count = 0
+                if empty_or_few_count >= 3:
+                    logger.info("Три подряд неполные страницы — завершаем загрузку.")
+                    break
                 continue
 
-            # Делаем запрос
             headers = self.get_headers()
             try:
                 response = requests.get(url, headers=headers, params=params)
                 response.raise_for_status()
                 result = response.json()
-                logger.debug(f"result: {result}")
-
-                # Просто добавляем найденные резюме без обработки
-                all_items.extend(result.get("items", []))
+                items = result.get("items", [])
+                all_items.extend(items)
                 self._save_to_cache(url, params, result)
                 page += 1
+
+                if len(items) < current_per_page:
+                    empty_or_few_count += 1
+                else:
+                    empty_or_few_count = 0
+
+                if empty_or_few_count >= 3:
+                    logger.info("Три подряд неполные страницы — завершаем загрузку.")
+                    break
+
             except Exception as e:
                 logger.error(f"Ошибка при запросе страницы {page}: {e}")
                 raise
