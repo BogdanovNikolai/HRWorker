@@ -59,7 +59,7 @@ class Config:
 
     # === Логирование ===
     LOG_LEVEL = os.getenv("LOG_LEVEL")
-    LOG_FILE = os.getenv("LOG_FILE")
+    LOG_FILE = os.getenv("LOG_FILE", "logs/app.log")
 
     # === Директории ===
     OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")

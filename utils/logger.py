@@ -14,39 +14,30 @@ from config import conf
 def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: str = "INFO") -> logging.Logger:
     """
     Настраивает и возвращает логгер с указанными параметрами.
-
-    Args:
-        name (str): Имя логгера. Обычно используется __name__ модуля.
-        log_file (Optional[str]): Путь к файлу лога. Если не указан, используется значение из env.
-        level (str): Уровень логирования. Например: DEBUG, INFO, WARNING, ERROR, CRITICAL.
-
-    Returns:
-        logging.Logger: Настроенный экземпляр логгера.
     """
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
 
-    # Избегаем дублирования хендлеров
-    if logger.hasHandlers():
+    logger = logging.getLogger(name)
+
+    # Преобразуем строку уровня логирования в числовой уровень
+    level = os.getenv("LOG_LEVEL", level).upper()
+    numeric_level = getattr(logging, level, logging.INFO)
+    logger.setLevel(numeric_level)
+
+    if logger.handlers:
         return logger
 
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    # Консольный вывод
+    # Консольный хендлер
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    # Файловый вывод
-    print(conf.LOG_FILE)
+    # Файловый хендлер
     file_path = log_file or conf.LOG_FILE
-    if not file_path:
-        file_path = "logs/app.log"
-
-    # Создаём папку, если её нет
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
+    log_dir = os.path.dirname(file_path) or "."
     try:
+        os.makedirs(log_dir, exist_ok=True)
         file_handler = TimedRotatingFileHandler(
             filename=file_path,
             when='H',
