@@ -5,18 +5,12 @@ from config import conf
 
 
 class EStaffBot:
-    def __init__(self, 
-                 estaff_module_icon=conf.ESTAFF_MODULE_ICON,
-                 estaff_module_icon_2=conf.ESTAFF_MODULE_ICON_2,
-                 estaff_save=conf.ESTAFF_SAVE,
-                 estaff_save_duble=conf.ESTAFF_SAVE_DUBLE,
-                 base_url="https://www.hh.ru/resume/",
-                ):
+    def __init__(self):
         self.estaff_module_icon=conf.ESTAFF_MODULE_ICON
         self.estaff_module_icon_2=conf.ESTAFF_MODULE_ICON_2
         self.estaff_save=conf.ESTAFF_SAVE
         self.estaff_save_duble=conf.ESTAFF_SAVE_DUBLE
-        self.base_url="https://www.hh.ru/resume/",
+        self.base_url="https://www.hh.ru/resume/"
 
     def open_resume(self, resume_id):
         """Открывает резюме по указанному ID"""
@@ -25,7 +19,7 @@ class EStaffBot:
         webbrowser.open(url)
 
         # Даем время на загрузку страницы
-        time.sleep(5)
+        time.sleep(7)
 
     def click_on_image(self, image_path, confidence=0.9):
         """
@@ -34,6 +28,7 @@ class EStaffBot:
         :param confidence: Точность распознавания (0.0 - 1.0)
         :return: True, если кликнул, иначе False
         """
+        time.sleep(5)
         print(f"Ищем изображение: {image_path}...")
         try:
             location = pyautogui.locateOnScreen(image_path, confidence=confidence)
@@ -53,9 +48,8 @@ class EStaffBot:
     def process_resume(self, resume_id):
         """Полный процесс: открытие одного резюме и клики по двум изображениям"""
         print(f"Обработка резюме с ID: {resume_id}")
-        self.open_resume(resume_id)
 
-        time.sleep(2)
+        self.open_resume(resume_id)
         
         # Первый клик: пробуем основное изображение, если не получается — альтернативное
         clicked = self.click_on_image(self.estaff_module_icon)
@@ -67,14 +61,11 @@ class EStaffBot:
             print(f"Не удалось кликнуть по модулю для резюме {resume_id}.")
             return False
 
-        time.sleep(2)
-
         # Второй клик: пробуем основной save, если не получается — дубликат
         clicked = self.click_on_image(self.estaff_save)
         if not clicked:
             print("Пробуем второй вариант кнопки сохранения...")
             clicked = self.click_on_image(self.estaff_save_duble)
-            time.sleep(1)
             clicked = self.click_on_image(self.estaff_save)
 
         if not clicked:
