@@ -15,7 +15,7 @@ from data_manager.resume_processor import ResumeProcessor
 from database.repository import ResumeRepository
 from database.session import get_db
 from utils.logger import setup_logger
-from tests.scripts.estaff import EStaffBot 
+from estaffbot.estaff import EStaffBot 
 
 
 logger = setup_logger(__name__)
