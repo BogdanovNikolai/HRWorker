@@ -33,6 +33,7 @@
     <button type="button" onclick="submitExport('xlsx')" class="btn btn-success">Экспорт в Excel</button>
     <button type="button" onclick="submitExport('csv')" class="btn btn-outline-secondary">Экспорт в CSV</button>
     <button type="button" onclick="submitExport('estaff')" class="btn btn-outline-info">Экспорт в E-Staff</button>
+    <button id="select-all-btn" type="button" class="btn btn-outline-primary">Выделить всё</button>
   </div>
 
   <!-- Таблица резюме -->
@@ -280,6 +281,25 @@
         }
       });
     }
+
+    // --- Обработчик кнопки "Выделить всё" ---
+    document.getElementById("select-all-btn").addEventListener("click", function () {
+      const checkboxes = tbody.querySelectorAll("input[name='resume_ids']");
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+      // Меняем состояние всех чекбоксов
+      checkboxes.forEach(cb => cb.checked = !allChecked);
+
+      // Опционально: подсветка строк
+      // checkboxes.forEach(cb => {
+      //   const row = cb.closest("tr");
+      //   if (cb.checked) {
+      //     row.classList.add("table-primary");
+      //   } else {
+      //     row.classList.remove("table-primary");
+      //   }
+      // });
+    });
   });
 </script>
 
@@ -298,6 +318,10 @@
   .read {
     background-color: #f8f9fa !important; /* Светло-серый фон */
     opacity: 0.6;
+  }
+  
+  .table-primary {
+    background-color: #bfefff !important;
   }
 </style>
 
