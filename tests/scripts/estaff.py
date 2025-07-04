@@ -1,21 +1,22 @@
 import pyautogui
 import time
 import webbrowser
+from config import conf
 
 
 class EStaffBot:
     def __init__(self, 
+                 estaff_module_icon,
+                 estaff_module_icon_2,
+                 estaff_save,
+                 estaff_save_duble,
                  base_url="https://www.hh.ru/resume/",
-                 estaff_module_icon="C:\\Users\\bogdanov.na\\Work\\HRWorker\\tests\\scripts\\estaff_module_icon.png",
-                 estaff_module_icon_2="C:\\Users\\bogdanov.na\\Work\\HRWorker\\tests\\scripts\\estaff_module_icon_2.png",
-                 estaff_save="C:\\Users\\bogdanov.na\\Work\\HRWorker\\tests\\scripts\\estaff_save.png",
-                 estaff_save_duble="C:\\Users\\bogdanov.na\\Work\\HRWorker\\tests\\scripts\\estaff_save_duble.png",
                 ):
-        self.base_url = base_url
-        self.estaff_module_icon = estaff_module_icon
-        self.estaff_module_icon_2 = estaff_module_icon_2
-        self.estaff_save = estaff_save
-        self.estaff_save_duble = estaff_save_duble
+        self.estaff_module_icon=conf.ESTAFF_MODULE_ICON
+        self.estaff_module_icon_2=conf.ESTAFF_MODULE_ICON_2
+        self.estaff_save=conf.ESTAFF_SAVE
+        self.estaff_save_duble=conf.ESTAFF_SAVE_DUBLE
+        self.base_url="https://www.hh.ru/resume/",
 
     def open_resume(self, resume_id):
         """Открывает резюме по указанному ID"""

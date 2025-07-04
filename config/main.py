@@ -75,3 +75,9 @@ class Config:
 
     # === SQLAlchemy ===
     SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
+
+    # === EStaff images ===
+    ESTAFF_MODULE_ICON = os.getenv("ESTAFF_MODULE_ICON")
+    ESTAFF_MODULE_ICON_2 = os.getenv("ESTAFF_MODULE_ICON_2")
+    ESTAFF_SAVE = os.getenv("ESTAFF_SAVE")
+    ESTAFF_SAVE_DUBLE = os.getenv("ESTAFF_SAVE_DUBLE")
