@@ -11,6 +11,12 @@ from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 from config import conf
 
+
+class SharedTimedRotatingFileHandler(TimedRotatingFileHandler):
+    def _open(self):
+        return open(self.baseFilename, self.mode, encoding=self.encoding)
+
+
 def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: str = "INFO") -> logging.Logger:
     """
     Настраивает и возвращает логгер с указанными параметрами.
@@ -38,13 +44,13 @@ def setup_logger(name: str = __name__, log_file: Optional[str] = None, level: st
     log_dir = os.path.dirname(file_path) or "."
     try:
         os.makedirs(log_dir, exist_ok=True)
-        file_handler = TimedRotatingFileHandler(
+        file_handler = SharedTimedRotatingFileHandler(
             filename=file_path,
             when='H',
             interval=12,
             backupCount=90,
             encoding='utf-8',
-            delay=False
+            delay=False,
         )
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
