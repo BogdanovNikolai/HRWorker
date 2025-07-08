@@ -91,11 +91,40 @@ def search():
     """
     
     keywords = request.args.get("keywords", "").strip()
+    experience_period = request.args.get("experience_period", "all_time")
+    search_field = request.args.get("search_field", "everywhere")
+    only_with_photo = bool(request.args.get("only_with_photo", False))
+    only_with_salary = bool(request.args.get("only_with_salary", False))
+    only_with_age = bool(request.args.get("only_with_age", False))
+    only_with_gender = bool(request.args.get("only_with_gender", False))
+    only_with_vehicle = bool(request.args.get("only_with_vehicle", False))
+    exclude_viewed_by_user_id = bool(request.args.get("exclude_viewed_by_user_id", False))
+    exclude_viewed_by_employer_id = bool(request.args.get("exclude_viewed_by_employer_id", False))
+    only_in_responses = bool(request.args.get("only_in_responses", False))
+    order_by = request.args.get("order_by", "publication_time")
+    relocation_type = request.args.get("relocation_type", "living")
     salary_to = request.args.get("salary_to", type=int)
-    region = request.args.getlist('region')
-    not_living = bool(request.args.get("not_living"))
+    region_raw = request.args.get("region", "2019")
+    region = region_raw.split(",") if isinstance(region_raw, str) else region_raw
     description = request.args.get("description", "").strip()
     total = request.args.get("total", default=20, type=int)
+    
+    print(f"experience_period: {experience_period}")
+    print(f"search_field: {search_field}")
+    print(f"only_with_photo: {only_with_photo}")
+    print(f"only_with_salary: {only_with_salary}")
+    print(f"only_with_age: {only_with_age}")
+    print(f"only_with_gender: {only_with_gender}")
+    print(f"only_with_vehicle: {only_with_vehicle}")
+    print(f"exclude_viewed_by_user_id: {exclude_viewed_by_user_id}")
+    print(f"exclude_viewed_by_employer_id: {exclude_viewed_by_employer_id}")
+    print(f"only_in_responses: {only_in_responses}")
+    print(f"order_by: {order_by}")
+    print(f"relocation_type: {relocation_type}")
+    print(f"salary_to: {salary_to}")
+    print(f"region: {region}")
+    print(f"description: {description}")
+    print(f"total: {total}")
 
     if not keywords:
         return render_template("search.html", error="Введите ключевые слова для поиска", regions=regions)
@@ -106,11 +135,22 @@ def search():
     try:
         task_id = dm.search_resumes(
             keywords=keywords,
+            experience_period=experience_period,
+            search_field=search_field,
+            only_with_photo=only_with_photo,
+            only_with_salary=only_with_salary,
+            only_with_age=only_with_age,
+            only_with_gender=only_with_gender,
+            only_with_vehicle=only_with_vehicle,
+            exclude_viewed_by_user_id=exclude_viewed_by_user_id,
+            exclude_viewed_by_employer_id=exclude_viewed_by_employer_id,
+            only_in_responses=only_in_responses,
+            order_by=order_by,
+            relocation_type=relocation_type,
             salary_to=salary_to,
             region=region,
-            not_living=not_living,
             total=total,
-            description=description
+            description=description,
         )
         return redirect(url_for("show_resumes", task_id=task_id))
     except ValueError as e:

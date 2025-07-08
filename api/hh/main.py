@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import requests
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from functools import wraps
 from config import conf
 from utils.logger import setup_logger
@@ -25,9 +25,52 @@ from ai import ai_evaluator
 
 logger = setup_logger(__name__)
 
-def parse_keywords(keywords: str) -> List[str]:
-    # Ищем либо "фразы в кавычках", либо отдельные слова
-    return re.findall(r'"[^"]+"|\S+', keywords)
+def parse_keyword_params(keywords: str, field: str = "everywhere", period: str = "all_time") -> List[Tuple[str, str]]:
+    """
+    Парсит строку ключевых слов и возвращает параметры в формате списка,
+    подходящего для HH API, где можно использовать повторяющиеся ключи.
+    
+    Поддерживает:
+      - обычные слова -> text.logic=any
+      - фразы в кавычках -> text.logic=phrase
+    """
+    logger.info(f"BLABLA 1 {keywords}")
+    if not keywords or not keywords.strip():
+        return []
+
+    keywords = keywords.strip()
+    logger.info(f"BLABLA 2 {keywords}")
+
+    quoted_phrases = re.findall(r'"([^"]+)"', keywords)
+    remaining = re.sub(r'"[^"]+"', '', keywords)
+    words = [w.strip() for w in remaining.split() if w.strip()]
+
+    logger.info(f"BLABLA 3 {quoted_phrases}")
+    logger.info(f"BLABLA 4 {words}")
+
+    params = []
+
+    # Сначала фразы (logic=phrase)
+    for phrase in quoted_phrases:
+        params.extend([
+            ("text", f'"{phrase}"'),
+            ("text.logic", "phrase"),
+            ("text.field", field),
+            ("text.period", period),
+        ])
+
+    # Затем отдельные слова (logic=all)
+    word_list = ' AND '.join(words)
+    params.extend([
+        ("text", word_list),
+        ("text.logic", "all"),
+        ("text.field", field),
+        ("text.period", period),
+    ])
+
+    logger.info(f"BLABLA {params}")
+
+    return params
 
 def retry_on_limit_exceeded(max_retries=3, delay=2, backoff=2):
     def decorator(func):
@@ -201,18 +244,88 @@ class HHApiClient:
             "User-Agent": "HH-User-Agent",
         }
 
+    def get_all_resumes_simple(
+        self,
+        keywords: str,
+        experience_period: str = "all_time",
+        search_field: str = "everywhere",
+        region: List[str] = ["113"],
+        per_page: int = 10,
+    ) -> Dict[str, Any]:
+        """
+        Упрощённая версия метода для тестирования парсинга ключевых слов с правильной логикой.
+        """
+
+        if per_page > 50:
+            raise ValueError("Параметр 'per_page' не может быть больше 50.")
+        if not keywords or not keywords.strip():
+            raise ValueError("Параметр 'keywords' обязателен и не может быть пустым.")
+
+        # Парсим ключевые слова в параметры HH API (в виде списка пар)
+        keyword_params = parse_keyword_params(
+            keywords=keywords,
+            field=search_field,
+            period=experience_period
+        )
+
+        # Основные параметры запроса
+        base_params = [
+            ("area", r) for r in region
+        ] + [
+            ("per_page", str(per_page)),
+        ]
+
+        # Объединяем все параметры
+        params = base_params + keyword_params
+
+        headers=self.get_headers()
+
+        url = f"{self.base_url}/resumes"
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            items = result.get("items", [])
+            return {"found": len(items), "items": items}
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP ошибка при выполнении запроса: {e}")
+            if e.response is not None:
+                logger.error(f"Статус код: {e.response.status_code}")
+                logger.error(f"Тело ответа: {e.response.text}")
+            return {"found": 0, "items": []}
+        except Exception as e:
+            logger.error(f"Неизвестная ошибка при выполнении запроса: {e}", exc_info=True)
+            return {"found": 0, "items": []}
+
     @retry_on_limit_exceeded(max_retries=5, delay=2)
     @refresh_token_if_needed
     def get_all_resumes(
         self,
         keywords: str,
+        experience_period: str = "all_time",
+        search_field: str = "everywhere",
+        only_with_photo: bool = False,
+        only_with_salary: bool = False,
+        only_with_age: bool = False,
+        only_with_gender: bool = False,
+        only_with_vehicle: bool = False,
+        exclude_viewed_by_user_id: bool = False,
+        exclude_viewed_by_employer_id: bool = False,
+        only_in_responses: bool = False,
+        order_by: str = "publication_time",
+        relocation_type: str = "living",
         salary_to: Optional[int] = None,
         region: List[str] = ["113"],
-        not_living: bool = False,
-        total: int = 1,
+        total: int = 50,
         per_page: int = 50,
         description: Optional[str] = ""
     ) -> Dict[str, Any]:
+        """
+        Метод для поиска резюме на HeadHunter.
+        """
+        
+        #return self.get_all_resumes_simple(keywords=keywords, region=region, per_page=per_page)
+
         if per_page > 50:
             raise ValueError("Параметр 'per_page' не может быть больше 50.")
         if not keywords or not keywords.strip():
@@ -222,28 +335,64 @@ class HHApiClient:
 
         all_items = []
         page = 0
-        empty_or_few_count = 0  # Счётчик подряд идущих неполных страниц
+        empty_or_few_count = 0
 
-        relocation = "living_or_relocation" if not_living else "living"
+        ORDER_BY_MAP = {
+            "publication_time": "publication_time",
+            "relevance": "relevance",
+            "distance": "distance",
+            "salary_desc": "salary_desc",
+            "salary_asc": "salary_asc"
+        }
+
+        if order_by not in ORDER_BY_MAP:
+            raise ValueError(f"Неверное значение для 'order_by': {order_by}. "
+                             f"Допустимые значения: {', '.join(ORDER_BY_MAP.keys())}")
 
         while len(all_items) < total:
             remaining = total - len(all_items)
             current_per_page = min(per_page, remaining)
-            keywords_list = parse_keywords(keywords)
-            keywords_query = ' '.join(keywords_list)
+
+            keywords_query = parse_keyword_params(keywords)
+            # keywords_query = ' '.join(keywords_list)
+
+            labels = []
+            if only_with_photo:
+                labels.append("only_with_photo")
+            if only_with_salary:
+                labels.append("only_with_salary")
+            if only_with_age:
+                labels.append("only_with_age")
+            if only_with_gender:
+                labels.append("only_with_gender")
+            if only_with_vehicle:
+                labels.append("only_with_vehicle")
 
             params = {
                 "text": keywords_query,
-                "relocation": relocation,
-                "job_search_status": ["active_search", "looking_for_offers"],
+                # "text.logic": "phrase",
+                # "text.field": search_field,
+                # "text.period": experience_period,
                 "area": region,
                 "page": page,
-                "per_page": current_per_page
+                "per_page": current_per_page,
+                # "relocation": relocation_type,
+                # "job_search_status": ["active_search", "looking_for_offers"],
+                # "order_by": ORDER_BY_MAP[order_by],
             }
 
-            if salary_to is not None:
-                params["salary_to"] = salary_to
-                params["label"] = "only_with_salary"
+            # Триада text.*
+            # params["text.logic"] = "phrase"
+            # params["text.field"] = search_field
+            # params["text.period"] = experience_period
+
+            # if salary_to is not None:
+            #     params["salary_to"] = salary_to
+            #     if "only_with_salary" not in labels:
+            #         labels.append("only_with_salary")
+
+            # if labels:
+            #     params["label"] = labels
 
             url = f"{self.base_url}/resumes"
             encoded_params = urlencode(params, doseq=True)
@@ -255,7 +404,6 @@ class HHApiClient:
                 items = cached.get("items", [])
                 all_items.extend(items)
                 page += 1
-                # Проверка количества возвращённых резюме
                 if len(items) < current_per_page:
                     empty_or_few_count += 1
                 else:

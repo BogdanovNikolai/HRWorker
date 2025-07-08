@@ -41,9 +41,20 @@ class DataManager:
     def search_resumes(
     self,
     keywords: str,
+    experience_period: str = "all_time",
+    search_field: str = "everywhere",
+    only_with_photo: bool = False,
+    only_with_salary: bool = False,
+    only_with_age: bool = False,
+    only_with_gender: bool = False,
+    only_with_vehicle: bool = False,
+    exclude_viewed_by_user_id: bool = False,
+    exclude_viewed_by_employer_id: bool = False,
+    only_in_responses: bool = False,
+    order_by: str = "publication_time",
+    relocation_type: str = "living",
     salary_to: Optional[int] = None,
     region: List[str] = ["113"],
-    not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
     description: Optional[str] = ""
@@ -57,11 +68,22 @@ class DataManager:
         try:
             resumes = self.search_engine.search(
                 keywords=keywords,
+                experience_period=experience_period,
+                search_field=search_field,
+                only_with_photo=only_with_photo,
+                only_with_salary=only_with_salary,
+                only_with_age=only_with_age,
+                only_with_gender=only_with_gender,
+                only_with_vehicle=only_with_vehicle,
+                exclude_viewed_by_user_id=exclude_viewed_by_user_id,
+                exclude_viewed_by_employer_id=exclude_viewed_by_employer_id,
+                only_in_responses=only_in_responses,
+                order_by=order_by,
+                relocation_type=relocation_type,
                 salary_to=salary_to,
                 region=region,
-                not_living=not_living,
                 total=total,
-                per_page=per_page
+                description=description,
             )
             if not isinstance(resumes, list):
                 logger.error("Ошибка поиска: ожидался список резюме")

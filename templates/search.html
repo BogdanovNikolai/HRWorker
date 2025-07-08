@@ -22,14 +22,14 @@
         <select id="region" name="region" class="form-control" multiple>
             <option value="">-- Выберите регион --</option>
             {% for region in regions %}
-                <option value="{{ region.id }}">{{ region.name }}</option>
+                <option value="{{ region.id }}"
+                        {% if region.id|string in request.args.getlist('region') or region.id == '2019' %}
+                            selected
+                        {% endif %}>
+                    {{ region.name }}
+                </option>
             {% endfor %}
         </select>
-    </div>
-
-    <div class="mb-3 form-check">
-        <input type="checkbox" class="form-check-input" id="not_living" name="not_living">
-        <label class="form-check-label" for="not_living">Рассматривать готовых к переезду?</label>
     </div>
 
     <script>
@@ -39,6 +39,88 @@
             placeholder: "Выберите до 10 регионов",
         });
     </script>
+
+    <div class="mb-3">
+        <label for="experience_period" class="form-label">Период опыта</label>
+        <select class="form-select" id="experience_period" name="experience_period">
+            <option value="all_time" {% if request.args.get('experience_period') == 'all_time' %}selected{% endif %}>За всё время опыта</option>
+            <option value="last_year" {% if request.args.get('experience_period') == 'last_year' %}selected{% endif %}>За последний год</option>
+            <option value="last_three_years" {% if request.args.get('experience_period') == 'last_three_years' %}selected{% endif %}>За последние 3 года</option>
+            <option value="last_six_years" {% if request.args.get('experience_period') == 'last_six_years' %}selected{% endif %}>За последние 6 лет</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="search_field" class="form-label">Искать в поле</label>
+        <select class="form-select" id="search_field" name="search_field">
+            <option value="everywhere">Везде</option>
+            <option value="title" {% if request.args.get('search_field') == 'title' %}selected{% endif %}>В названии резюме</option>
+            <option value="education" {% if request.args.get('search_field') == 'education' %}selected{% endif %}>В образовании</option>
+            <option value="skills" {% if request.args.get('search_field') == 'skills' %}selected{% endif %}>В ключевых навыках</option>
+            <option value="experience" {% if request.args.get('search_field') == 'experience' %}selected{% endif %}>В опыте работы</option>
+            <option value="experience_company" {% if request.args.get('search_field') == 'experience_company' %}selected{% endif %}>В компаниях и отраслях</option>
+            <option value="experience_position" {% if request.args.get('search_field') == 'experience_position' %}selected{% endif %}>В должностях</option>
+            <option value="experience_description" {% if request.args.get('search_field') == 'experience_description' %}selected{% endif %}>В обязанностях</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Дополнительные фильтры</label>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_with_photo" name="only_with_photo" {% if request.args.get('only_with_photo') %}checked{% endif %}>
+            <label class="form-check-label" for="only_with_photo">Только с фотографией</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_with_salary" name="only_with_salary" {% if request.args.get('only_with_salary') %}checked{% endif %}>
+            <label class="form-check-label" for="only_with_salary">Не показывать резюме без зарплаты</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_with_age" name="only_with_age" {% if request.args.get('only_with_age') %}checked{% endif %}>
+            <label class="form-check-label" for="only_with_age">Не показывать резюме без указания возраста</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_with_gender" name="only_with_gender" {% if request.args.get('only_with_gender') %}checked{% endif %}>
+            <label class="form-check-label" for="only_with_gender">Не показывать резюме без указания пола</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_with_vehicle" name="only_with_vehicle" {% if request.args.get('only_with_vehicle') %}checked{% endif %}>
+            <label class="form-check-label" for="only_with_vehicle">Есть личный автомобиль</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="exclude_viewed_by_user_id" name="exclude_viewed_by_user_id" {% if request.args.get('exclude_viewed_by_user_id') %}checked{% endif %}>
+            <label class="form-check-label" for="exclude_viewed_by_user_id">Скрыть резюме, просмотренные мной</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="exclude_viewed_by_employer_id" name="exclude_viewed_by_employer_id" {% if request.args.get('exclude_viewed_by_employer_id') %}checked{% endif %}>
+            <label class="form-check-label" for="exclude_viewed_by_employer_id">Скрыть резюме, просмотренные всей компанией</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="only_in_responses" name="only_in_responses" {% if request.args.get('only_in_responses') %}checked{% endif %}>
+            <label class="form-check-label" for="only_in_responses">Показать только из откликов и приглашений</label>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="order_by" class="form-label">Сортировать по:</label>
+        <select class="form-select" id="order_by" name="order_by">
+            <option value="publication_time" {% if request.args.get('order_by') == 'publication_time' %}selected{% endif %}>По дате изменения</option>
+            <!--
+            <option value="salary_desc" {% if request.args.get('order_by') == 'salary_desc' %}selected{% endif %}>по убыванию зарплат</option>
+            <option value="salary_asc" {% if request.args.get('order_by') == 'salary_asc' %}selected{% endif %}>по возрастанию зарплаты</option>
+            -->
+            <option value="relevance" {% if request.args.get('order_by') == 'relevance' %}selected{% endif %}>По соответствию</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="relocation_type" class="form-label">Готовность к переезду</label>
+        <select class="form-select" id="relocation_type" name="relocation_type">
+            <option value="living" {% if request.args.get('relocation_type') == 'living' %}selected{% endif %}>Живут в указанном регионе</option>
+            <option value="living_or_relocation" {% if request.args.get('relocation_type') == 'living_or_relocation' %}selected{% endif %}>Живут или готовы переехать</option>
+            <option value="living_but_relocation" {% if request.args.get('relocation_type') == 'living_but_relocation' %}selected{% endif %}>Живут здесь и готовы к переезду</option>
+            <option value="relocation" {% if request.args.get('relocation_type') == 'relocation' %}selected{% endif %}>Не живут, но готовы переехать</option>
+        </select>
+    </div>
 
     <div class="mb-3">
         <label for="description" class="form-label">Описание вакансии (для ИИ)</label>
