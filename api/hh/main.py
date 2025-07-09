@@ -109,10 +109,10 @@ class HHApiClient:
         self.token_expiry = datetime.utcnow() + timedelta(days=14)
         self.cache_ttl = self.CACHE_TTL
 
-    def _make_cache_key(self, url: str, params: dict) -> str:
+    def _make_cache_key(self, url: str, params: dict, source: str = "hh") -> str:
         """Формирует ключ кэша на основе URL и параметров."""
         sorted_params = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-        return f"hh_api:{url}?{sorted_params}"
+        return f"{source}_api:{url}?{sorted_params}"
 
     def _get_cached_response(self, url: str, params: dict) -> Optional[Dict[str, Any]]:
         """Получает закэшированный ответ из Redis."""
@@ -335,7 +335,7 @@ class HHApiClient:
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             resume_data = response.json()
-            logger.debug(f"RESUME DATA: {resume_data}")
+            # logger.debug(f"RESUME DATA: {resume_data}")
 
             # Шаг 3: Сохраняем в кэш
             self._save_to_cache(url, params, resume_data)

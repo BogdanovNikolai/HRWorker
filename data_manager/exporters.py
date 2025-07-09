@@ -165,7 +165,7 @@ class Exporter:
             title = str(item.get("title", "")).strip() or "—"
 
             # --- Ссылка на резюме ---
-            link = (item.get("alternate_url") or item.get("link") or "").strip()
+            link = (item.get("link") or "").strip()
 
             # --- Соответствие (%) ---
             match_percent = str(item.get("match_percent", "")).strip() or "—"

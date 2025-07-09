@@ -96,6 +96,7 @@ def search():
     not_living = bool(request.args.get("not_living"))
     description = request.args.get("description", "").strip()
     total = request.args.get("total", default=20, type=int)
+    source = request.args.get("source", default="hh")
 
     if not keywords:
         return render_template("search.html", error="Введите ключевые слова для поиска", regions=regions)
@@ -110,9 +111,10 @@ def search():
             region=region,
             not_living=not_living,
             total=total,
-            description=description
+            description=description,
+            source=source,
         )
-        return redirect(url_for("show_resumes", task_id=task_id))
+        return redirect(url_for("show_resumes", task_id=task_id, source=source))
     except ValueError as e:
         logger.warning(f"Ошибка валидации: {e}")
         return render_template("search.html", error=str(e), regions=regions)
@@ -147,7 +149,7 @@ def manual_update_vacancies():
 
 @log_function_call
 @app.route("/vacancies/<int:vacancy_id>")
-def vacancy_responses(vacancy_id: int):
+def vacancy_responses(vacancy_id: int, source: str = "hh"):
     """
     Отклики по конкретной вакансии.
     Сохраняет список откликов как новую задачу и перенаправляет на /resumes/<task_id>.
@@ -162,11 +164,12 @@ def vacancy_responses(vacancy_id: int):
 
     task_id = redis_manager.create_task(resume_ids, description=description)
 
-    return redirect(url_for("show_resumes", task_id=task_id, resume_negotiation_map=json.dumps(resume_to_negotiation)))
+    return redirect(url_for("show_resumes", task_id=task_id, source=source, resume_negotiation_map=json.dumps(resume_to_negotiation)))
 
 @log_function_call
 @app.route("/resumes/<task_id>")
-def show_resumes(task_id: str):
+def show_resumes(task_id: str, source: str = "hh"):
+    source = request.args.get("source", "hh")
     map_json = request.args.get("resume_negotiation_map")
 
     try:
@@ -179,6 +182,7 @@ def show_resumes(task_id: str):
     return render_template(
         "resume_list.html",
         task_id=task_id,
+        source=source,
         resume_negotiation_map=Markup(safe_json)
     )
 
@@ -282,7 +286,8 @@ def load_resume_limits():
 @log_function_call
 @app.route("/api/resumes/<task_id>")
 def get_resumes_json(task_id: str):
-    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000)
+    source = request.args.get("source", "hh")
+    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000, source=source)
     resumes = result.get("items", [])
     
     # Получаем description из Redis
@@ -299,11 +304,12 @@ def get_resumes_json(task_id: str):
                 exp_data = json.loads(exp_data)
             except json.JSONDecodeError:
                 exp_data = []
-        for exp in exp_data:
-            if isinstance(exp, dict):
-                desc = exp.get("description", "").strip()
-                if desc:
-                    candidate_exp += desc + "\n"
+        if exp_data:
+            for exp in exp_data:
+                if isinstance(exp, dict):
+                    desc = exp.get("description", "").strip()
+                    if desc:
+                        candidate_exp += desc + "\n"
         if not candidate_exp:
             candidate_exp = "Опыт работы не указан."
 
@@ -311,6 +317,26 @@ def get_resumes_json(task_id: str):
             candidate_exp=candidate_exp,
             vacancy_description=description
         )
+        
+        if source == "hh":
+            link = resume.get("alternate_url") or resume.get("link")
+            if not link:
+                link = resume.get("url")
+            
+            #total_experience_months = resume.get("total_experience") or 0
+            #total_experience_months = total_experience_temp.get("months", 0) or 0
+            total_experience_months = \
+                                resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0
+        else:
+            link = f"{resume.get("link")}" or None # TODO баг, почему-то по умолчанию нет приставки avito.ru. Из кэша? пока убрал
+            if not link:
+                link = f"{resume.get("url")}"
+            
+            link = f"{link}"
+            #total_experience_months = resume.get("total_experience") or 0
+            #total_experience_months = total_experience_temp.get("months", 0) or 0
+            total_experience_months = \
+                                resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0
         
         count += 1
 
@@ -323,9 +349,9 @@ def get_resumes_json(task_id: str):
             "area": resume.get("area", {}).get("name") if resume.get("area") else "-",
             "title": resume.get("title"),
             "salary": f"{resume.get('salary', {}).get('amount')} {resume.get('salary', {}).get('currency')}" if resume.get("salary") else "—",
-            "total_experience": resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0,
+            "total_experience": total_experience_months,
             "match_percent": match_percent,
-            "alternate_url": resume.get("alternate_url"),
+            "link": link,
         })
 
     return {"resumes": processed_resumes}

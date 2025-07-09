@@ -5,6 +5,14 @@
 
 <form method="GET" action="{{ url_for('search') }}" class="mb-4">
     <div class="mb-3">
+        <label for="source">Источник</label>
+        <select id="source" name="source">
+            <option value="hh">HeadHunter</option>
+            <option value="avito">Avito</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
         <label for="keywords" class="form-label">Ключевые слова</label>
         <input type="text" class="form-control" id="keywords" name="keywords"
                placeholder="python middle разработчик"
@@ -33,10 +41,15 @@
     </div>
 
     <script>
-        new TomSelect("#region", {
-            plugins: ['remove_button'],
-            maxItems: 10,
-            placeholder: "Выберите до 10 регионов",
+        document.addEventListener('DOMContentLoaded', function () {
+            const regionSelect = new TomSelect("#region", {
+                plugins: ['remove_button'],
+                maxItems: 10,
+                placeholder: "Выберите до 10 регионов",
+            });
+
+            // Устанавливаем значение по умолчанию (id = 2019)
+            regionSelect.setValue([2019]); // массив, потому что multiple
         });
     </script>
 

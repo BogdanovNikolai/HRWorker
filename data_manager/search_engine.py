@@ -12,6 +12,7 @@ from database.repository import ResumeRepository
 from database.session import get_db
 from data_manager.resume_processor import ResumeProcessor
 from api.hh.main import HHApiClient
+from api.avito.main import AvitoAPIClient
 from utils.logger import setup_logger
 from redis_manager import redis_manager
 from config import conf
@@ -29,42 +30,45 @@ class SearchEngine:
         ttl_hours (int): Время жизни кэшированного резюме.
     """
 
-    def __init__(self, hh_client: HHApiClient = None):
+    def __init__(self, hh_client: HHApiClient = None, avito_client: AvitoAPIClient = None):
         self.hh_client = hh_client or HHApiClient()
+        self.avito_client = avito_client or AvitoAPIClient()
         self.resume_repo = ResumeRepository(db=next(get_db()))
         self.ttl_hours = 48  # Значение из config.conf.TTL_HOURS
 
-    def check_cache(self, resume_id: str) -> bool:
+    def check_cache(self, resume_id: str, source: str = "hh") -> bool:
         """
         Проверяет, есть ли резюме в кэше и актуально ли оно.
 
         Args:
             resume_id (str): ID резюме.
+            source (str): Источник резюме ("hh" или "avito").
 
         Returns:
             bool: True, если резюме существует и актуально.
         """
-        cached = self.resume_repo.get_by_link(resume_id)
+        cached = self.resume_repo.get_by_source_and_resume_id(source=source, resume_id=str(resume_id))
         if not cached:
             return False
         return self.is_cache_valid(cached)
 
-    def get_cached_resume(self, resume_id: str) -> Optional[Dict[str, Any]]:
+    def get_cached_resume(self, resume_id: str, source: str = "hh") -> Optional[Dict[str, Any]]:
         """
         Возвращает резюме из кэша (БД), если оно есть и актуально.
 
         Args:
             resume_id (str): ID резюме.
+            source (str): Источник ("hh" или "avito").
 
         Returns:
             dict | None: Резюме из кэша или None.
         """
         resume_url = f"https://hh.ru/resume/{resume_id}" 
-        cached = self.resume_repo.get_by_link(resume_url)
+        cached = self.resume_repo.get_by_source_and_resume_id(source=source, resume_id=str(resume_id))
         if not cached:
             return None
         if not self.is_cache_valid(cached):
-            logger.warning(f"Резюме {resume_id} устарело")
+            logger.warning(f"Резюме {resume_id} ({source}) устарело")
             return None
         return self._format_cached_resume(cached)
 
@@ -82,7 +86,7 @@ class SearchEngine:
         expiry_time = resume.received_at + timedelta(hours=self.ttl_hours)
         return now <= expiry_time
 
-    def save_to_cache(self, resume_data: Dict[str, Any]) -> None:
+    def save_to_cache(self, resume_data: Dict[str, Any], source: str = "hh") -> None:
         """
         Сохраняет резюме в БД без изменений.
         """
@@ -90,12 +94,12 @@ class SearchEngine:
             logger.warning("Резюме без ID не может быть сохранено")
             return
 
-        if self.resume_repo.resume_exists(resume_data["id"]):
-            logger.debug(f"Резюме {resume_data['id']} уже существует в БД. Пропускаем сохранение.")
+        if self.resume_repo.resume_exists(resume_data["id"], source):
+            logger.debug(f"Резюме {resume_data['id']} ({source}) уже существует в БД. Пропускаем сохранение.")
             return
 
         try:
-            self.resume_repo.create_resume(resume_data)
+            self.resume_repo.create_resume(resume_data, source)
         except Exception as e:
             logger.error(f"Ошибка при сохранении резюме в БД: {e}")
 
@@ -121,7 +125,8 @@ class SearchEngine:
             "salary": salary,
             "experience": experience,
             "total_experience": {"months": db_resume.total_experience_months} if db_resume.total_experience_months else None,
-            "alternate_url": db_resume.link
+            "link": db_resume.link,
+            "source": db_resume.source,
         }
 
     def search(
@@ -132,28 +137,45 @@ class SearchEngine:
     not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
-    description: Optional[str] = ""
+    description: Optional[str] = "",
+    source: str = "hh",
 ) -> List[Dict[str, Any]]:
         """
         Выполняет поиск резюме по ключевым словам и фильтрам.
         Возвращает сырые данные резюме.
-        """
-        logger.info(f"Начинаем поиск резюме: {keywords}, зарплата до {salary_to}, регион {region}")
         
-        raw_search_result = self.hh_client.get_all_resumes(
-            keywords=keywords,
-            salary_to=salary_to,
-            region=region,
-            not_living=not_living,
-            total=total,
-            per_page=per_page,
-            description=description
-        )
+        Args:
+            source (str): Источник поиска — "hh" или "avito".
+        """
+        logger.info(f"Начинаем поиск резюме на {source}: {keywords}, зарплата до {salary_to}, регион {region}")
+        
+        if source == "hh":
+            raw_search_result = self.hh_client.get_all_resumes(
+                keywords=keywords,
+                salary_to=salary_to,
+                region=region,
+                not_living=not_living,
+                total=total,
+                per_page=per_page,
+                description=description
+            )
+        elif source == "avito":
+            raw_search_result = self.avito_client.resumes(
+                query=keywords,
+                # location=region,
+                total=total,
+            )
+            
+            for item in raw_search_result.get("items", []):
+                if 'salary' in item:
+                    item['salary'] = self.avito_client.format_salary(item['salary'])
+        else:
+            raise ValueError(f"Неизвестный источник: {source}")
 
         found = raw_search_result.get("found", 0)
         items = raw_search_result.get("items", [])
 
-        logger.info(f"Найдено {len(items)} резюме")
+        logger.info(f"Найдено {len(items)} резюме на {source}")
         
         return items
 
@@ -195,17 +217,36 @@ class SearchEngine:
         items = []
 
         for resume_id in paginated_ids:
-            cached_resume = self.get_cached_resume(resume_id)
+            # Поддержка разных источников через префикс или словарь
+            if resume_id.startswith("hh_"):
+                source = "hh"
+                clean_id = resume_id.replace("hh_", "")
+            elif resume_id.startswith("avito_"):
+                source = "avito"
+                clean_id = resume_id.replace("avito_", "")
+            else:
+                source = "hh"
+                clean_id = resume_id
+
+            cached_resume = self.get_cached_resume(clean_id, source)
             if cached_resume:
                 items.append(cached_resume)
                 continue
 
-            full_resume = self.hh_client.get_resume_details(resume_id)
-            if not full_resume:
-                logger.warning(f"Не удалось получить полные данные резюме {resume_id}")
+            if source == "hh":
+                full_resume = self.hh_client.get_resume_details(clean_id)
+            elif source == "avito":
+                full_resume = self.avito_client.resume(clean_id)
+                full_resume['link'] = f"{full_resume.get('url')}" #avito.ru
+            else:
+                logger.warning(f"Неизвестный источник резюме: {source}")
                 continue
 
-            self.save_to_cache(full_resume)
+            if not full_resume:
+                logger.warning(f"Не удалось получить полные данные резюме {clean_id} ({source})")
+                continue
+
+            self.save_to_cache(full_resume, source)
             items.append(full_resume)
 
         return {

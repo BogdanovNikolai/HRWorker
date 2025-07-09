@@ -7,6 +7,7 @@
 import json
 from typing import List, Dict, Any, Optional, Tuple
 from api.hh.main import HHApiClient
+from api.avito.main import AvitoAPIClient
 from data_manager.resume_processor import ResumeProcessor
 from data_manager.search_engine import SearchEngine
 from database.repository import ResumeRepository
@@ -33,6 +34,7 @@ class DataManager:
 
     def __init__(self):
         self.hh_client = HHApiClient()
+        self.avito_client = AvitoAPIClient()
         self.search_engine = SearchEngine(self.hh_client)
         self.resume_repo = ResumeRepository(next(get_db()))
         self.redis_manager = RedisManager()
@@ -46,7 +48,8 @@ class DataManager:
     not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
-    description: Optional[str] = ""
+    description: Optional[str] = "",
+    source: str = "hh",
 ) -> str:
         """
         Синхронно выполняет поиск резюме и сохраняет результаты.
@@ -61,7 +64,8 @@ class DataManager:
                 region=region,
                 not_living=not_living,
                 total=total,
-                per_page=per_page
+                per_page=per_page,
+                source=source,
             )
             if not isinstance(resumes, list):
                 logger.error("Ошибка поиска: ожидался список резюме")
@@ -77,14 +81,17 @@ class DataManager:
 
         return task_id
 
-    def get_task_resumes(
-    self,
-    task_id: str,
-    offset: int = 0,
-    limit: int = 20
-) -> Dict[str, Any]:
+    def get_task_resumes( # ТУТ ALTERNATE_URL
+        self,
+        task_id: str,
+        offset: int = 0,
+        limit: int = 20,
+        source: str = "hh",  # Возможные значения: 'hh' или 'avito'
+    ) -> Dict[str, Any]:
         """
-        Возвращает список резюме по task_id без зависимости от прогресса.
+        Возвращает список резюме по task_id.
+        Если указан source='avito', загружает резюме с Avito, иначе с HH.
+        Если resume_id содержит префикс (hh_ или avito_), он переопределяет источник.
         """
         task_data = self.redis_manager.get_task_data(task_id)
         if not task_data or "resume_ids" not in task_data:
@@ -100,18 +107,55 @@ class DataManager:
         paginated_ids = resume_ids[offset:offset + limit]
 
         items = []
+        count = 1
+
         for resume_id in paginated_ids:
-            cached_resume = self.search_engine.get_cached_resume(resume_id)
+            str_resume_id = str(resume_id)
+
+            # Определяем текущий источник на основе префикса или общего параметра source
+            if str_resume_id.startswith("hh_"):
+                current_source = "hh"
+                clean_id = str_resume_id.replace("hh_", "")
+            elif str_resume_id.startswith("avito_"):
+                current_source = "avito"
+                clean_id = str_resume_id.replace("avito_", "")
+            else:
+                current_source = source  # <-- Используем переданный source
+                clean_id = str_resume_id
+
+            logger.info(f"Обрабатываем резюме ID: {clean_id}, источник: {current_source} — {count}/{len(paginated_ids)}")
+            count = count + 1
+
+            # Проверяем кэш
+            cached_resume = self.search_engine.get_cached_resume(clean_id, source=current_source)
             if cached_resume:
                 items.append(cached_resume)
                 continue
 
-            full_resume = self.hh_client.get_resume_details(resume_id)
-            if not full_resume:
-                logger.warning(f"Не удалось получить полные данные резюме {resume_id}")
+            # Загружаем полные данные в зависимости от источника
+            full_resume = None
+            if current_source == "hh":
+                full_resume = self.hh_client.get_resume_details(clean_id)
+            elif current_source == "avito":
+                full_resume = self.avito_client.resume(clean_id)
+                # Форматируем зарплату, если есть
+                if full_resume and 'salary' in full_resume:
+                    full_resume['salary'] = self.avito_client.format_salary(full_resume['salary'])
+                if full_resume:
+                    params = full_resume.get("params")
+                    experience = params.get("experience") if params.get("experience") else 0
+                    full_resume['total_experience'] = {'months': experience * 12}
+                full_resume['link'] = f"{full_resume.get('url')}" #avito.ru
+            else:
+                logger.warning(f"Неизвестный источник резюме: {current_source}")
                 continue
 
-            self.search_engine.save_to_cache(full_resume)
+            if not full_resume:
+                logger.warning(f"Не удалось получить полные данные резюме {clean_id} ({current_source})")
+                continue
+            
+            # Сохраняем в кэш и добавляем в результаты
+            self.search_engine.save_to_cache(full_resume, source=current_source)
             items.append(full_resume)
 
         return {
@@ -200,7 +244,6 @@ class DataManager:
 
             has_updates = n.get("has_updates", False)
             if has_updates:
-                # logger.info(f"ПОЛУЧЕН ОТКЛИК {n.get("id")}")
                 n_ids.append(n.get("id"))
                 new_resumes.append(resume_id)
 

@@ -48,7 +48,7 @@
           <th>Зарплата</th>
           <th>Опыт (мес)</th>
           <th>Соответствие (%)</th>
-          <th>Ссылка на HH</th>
+          <th>Ссылка</th>
           <th class="text-center">Выбрать</th>
         </tr>
       </thead>
@@ -116,7 +116,8 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     const taskId = "{{ task_id }}";
-    const apiUrl = `/api/resumes/${taskId}`;
+    const source = "{{ source }}"
+    const apiUrl = `/api/resumes/${taskId}?source=${encodeURIComponent(source)}`;
     const tbody = document.querySelector("#resume-table tbody");
     const foundCounter = document.getElementById("found-counter");
 
@@ -204,10 +205,10 @@
       data.forEach(resume => {
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${resume.first_name} ${resume.last_name} ${resume.middle_name || ''}</td>
-          <td>${resume.age || '-'}</td>
+          <td>${resume.first_name || ''} ${resume.last_name || ''} ${resume.middle_name || ''}</td>
+          <td>${resume.age || ''}</td>
           <td>${resume.area}</td>
-          <td>${resume.title || '-'}</td>
+          <td>${resume.title || ''}</td>
           <td>${resume.salary}</td>
           <td>${formatExperience(resume.total_experience)}</td>
           <td>${
@@ -215,7 +216,7 @@
               ? resume.match_percent + '%'
               : '<span class="text-muted">—</span>'
           }</td>
-          <td>${resume.alternate_url ? `<a href="${resume.alternate_url}" target="_blank" class="btn btn-sm btn-outline-primary">HH</a>` : '<span class="text-muted">—</span>'}</td>
+          <td>${resume.link ? `<a href="${resume.link}" target="_blank" class="btn btn-sm btn-outline-primary">Ссылка</a>` : '<span class="text-muted">—</span>'}</td>
           <td class="text-center">
             <div class="form-check form-check-inline m-0">
               <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">

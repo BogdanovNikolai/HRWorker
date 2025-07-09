@@ -156,4 +156,4 @@ class ResumeProcessor:
 
     def _get_link(self) -> str:
         """Получает ссылку на резюме."""
-        return self.raw_data.get("alternate_url", "")
+        return self.raw_data.get("link", "")

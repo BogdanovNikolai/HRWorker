@@ -81,3 +81,7 @@ class Config:
     ESTAFF_MODULE_ICON_2 = os.getenv("ESTAFF_MODULE_ICON_2")
     ESTAFF_SAVE = os.getenv("ESTAFF_SAVE")
     ESTAFF_SAVE_DUBLE = os.getenv("ESTAFF_SAVE_DUBLE")
+    
+    # === Avito API ===
+    AVITO_API_CLIENT = os.getenv("AVITO_API_CLIENT")
+    AVITO_CLIENT_SECRET = os.getenv("AVITO_CLIENT_SECRET")

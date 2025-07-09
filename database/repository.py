@@ -8,6 +8,9 @@ import json
 from typing import Optional, List
 from database.models import Resume
 from sqlalchemy.orm import Session
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class ResumeRepository:
@@ -24,6 +27,15 @@ class ResumeRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_by_source_and_resume_id(self, source: str, resume_id: str) -> Optional[Resume]:
+        """
+        Возвращает резюме по source и resume_id.
+        """
+        return self.db.query(Resume).filter(
+            Resume.source == source,
+            Resume.id == resume_id
+        ).first()
+
     def get_by_link(self, link: str) -> Optional[Resume]:
         """
         Ищет резюме по полной ссылке.
@@ -36,24 +48,29 @@ class ResumeRepository:
         """
         return self.db.query(Resume).filter(Resume.link == link).first()
 
-    def resume_exists(self, resume_id: str) -> bool:
-        return self.db.query(Resume.id).filter(Resume.id == resume_id).first() is not None
+    def resume_exists(self, resume_id: str, source: str = "hh") -> bool:
+        return self.db.query(Resume.id).filter(Resume.id == resume_id).filter(Resume.source == source).first() is not None
 
-    def create_resume(self, resume_data: dict) -> Resume:
-        """
-        Добавляет новое резюме в БД.
-
-        Args:
-            resume_data (dict): Данные резюме.
-
-        Returns:
-            Resume: Созданное резюме.
-        """
-        total_exp = resume_data.get("total_experience")
-        total_months = total_exp.get("months") if isinstance(total_exp, dict) else None
+    def create_resume(self, resume_data: dict, source: str = "hh") -> Resume:
+        if source == "avito":
+            resume_data_params = resume_data.get("params")
+            experience = json.dumps(resume_data_params.get("experience_list"))
+            exp = resume_data_params.get("experience")
+            months = int(exp) if exp else None
+            link = resume_data.get("url")
+        else: # hh
+            experience = json.dumps(resume_data.get("experience"))
+            exp = resume_data.get("total_experience")
+            months = exp.get("months") if isinstance(exp, dict) else None
+            link = resume_data.get("alternate_url")
+            
+        exp_dump = experience
+        total_months = months
+        resume_link = link
 
         db_resume = Resume(
             id=resume_data.get("id"),
+            source=source,
             first_name=resume_data.get("first_name"),
             middle_name=resume_data.get("middle_name"),
             last_name=resume_data.get("last_name"),
@@ -61,9 +78,9 @@ class ResumeRepository:
             age=resume_data.get("age"),
             location=resume_data.get("area", {}).get("name"),
             salary_json=json.dumps(resume_data.get("salary")) if resume_data.get("salary") else None,
-            experience=json.dumps(resume_data.get("experience")),
+            experience=exp_dump,
             total_experience_months=total_months,
-            link=resume_data.get("alternate_url")
+            link=resume_link,
         )
         self.db.add(db_resume)
         self.db.commit()
