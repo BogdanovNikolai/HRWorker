@@ -129,6 +129,9 @@ class DataManager:
             # Проверяем кэш
             cached_resume = self.search_engine.get_cached_resume(clean_id, source=current_source)
             if cached_resume:
+                if current_source == "avito":
+                    if cached_resume['total_experience']:
+                        cached_resume['total_experience'] = {'months': cached_resume.get('total_experience').get('months') * 12}
                 items.append(cached_resume)
                 continue
 

@@ -77,8 +77,10 @@ class AvitoAPIClient:
         }
 
         if total is None:
+            time.sleep(1.1)
             # Обычный однократный запрос, но всегда возвращаем dict
             for attempt in range(retries):
+                time.sleep(1.1)
                 try:
                     response = requests.request(
                         method=method,
@@ -140,6 +142,7 @@ class AvitoAPIClient:
         per_page = min(per_page, 100)
 
         while len(aggregated_results) < total:
+            time.sleep(1.1)
             actual_params = params.copy() if params else {}
             actual_params.update({
                 'page': page,
@@ -148,6 +151,7 @@ class AvitoAPIClient:
 
             success = False
             for attempt in range(retries):
+                time.sleep(1.1)
                 try:
                     response = requests.request(
                         method=method,
