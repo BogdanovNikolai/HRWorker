@@ -2,6 +2,9 @@ import pyautogui
 import time
 import webbrowser
 from config import conf
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class EStaffBot:
@@ -15,7 +18,7 @@ class EStaffBot:
     def open_resume(self, resume_id):
         """Открывает резюме по указанному ID"""
         url = f"{self.base_url}{resume_id}"
-        print(f"Открываем ссылку: {url}")
+        logger.info(f"Открываем ссылку: {url}")
         webbrowser.open(url)
 
         # Даем время на загрузку страницы
@@ -29,50 +32,50 @@ class EStaffBot:
         :return: True, если кликнул, иначе False
         """
         time.sleep(5)
-        print(f"Ищем изображение: {image_path}...")
+        logger.info(f"Ищем изображение: {image_path}...")
         try:
             location = pyautogui.locateOnScreen(image_path, confidence=confidence)
             if location:
                 center = pyautogui.center(location)
                 x, y = center
-                print(f"Нашли! Кликаем по координатам: x={x}, y={y}")
+                logger.info(f"Нашли! Кликаем по координатам: x={x}, y={y}")
                 pyautogui.click(x, y)
                 return True
             else:
-                print(f"Изображение не найдено: {image_path}")
+                logger.warning(f"Изображение не найдено: {image_path}")
                 return False
         except Exception as e:
-            print(f"Ошибка при поиске или клике по изображению '{image_path}': {e}")
+            logger.error(f"Ошибка при поиске или клике по изображению '{image_path}': {e}")
             return False
 
     def process_resume(self, resume_id):
         """Полный процесс: открытие одного резюме и клики по двум изображениям"""
-        print(f"Обработка резюме с ID: {resume_id}")
+        logger.info(f"Обработка резюме с ID: {resume_id}")
 
         self.open_resume(resume_id)
         
         # Первый клик: пробуем основное изображение, если не получается — альтернативное
         clicked = self.click_on_image(self.estaff_module_icon)
         if not clicked:
-            print("Пробуем альтернативную иконку модуля...")
+            logger.info("Пробуем альтернативную иконку модуля...")
             clicked = self.click_on_image(self.estaff_module_icon_2)
         
         if not clicked:
-            print(f"Не удалось кликнуть по модулю для резюме {resume_id}.")
+            logger.error(f"Не удалось кликнуть по модулю для резюме {resume_id}.")
             return False
 
         # Второй клик: пробуем основной save, если не получается — дубликат
         clicked = self.click_on_image(self.estaff_save)
         if not clicked:
-            print("Пробуем второй вариант кнопки сохранения...")
+            logger.info("Пробуем второй вариант кнопки сохранения...")
             clicked = self.click_on_image(self.estaff_save_duble)
             clicked = self.click_on_image(self.estaff_save)
 
         if not clicked:
-            print(f"Не удалось сохранить для резюме {resume_id}.")
+            logger.error(f"Не удалось сохранить для резюме {resume_id}.")
             return False
 
-        print(f"Резюме {resume_id} успешно обработано.")
+        logger.info(f"Резюме {resume_id} успешно обработано.")
         return True
 
     def process_resumes(self, resume_ids):

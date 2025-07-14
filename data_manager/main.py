@@ -15,7 +15,6 @@ from redis_manager import RedisManager
 from database.session import get_db
 from utils.logger import setup_logger
 from threading import Thread
-from data_manager.task_tracker import TaskTracker
 
 logger = setup_logger(__name__)
 
@@ -29,7 +28,6 @@ class DataManager:
         search_engine (SearchEngine): Логика поиска и кэширования.
         resume_repo (ResumeRepository): Работа с резюме в базе данных.
         redis_manager (RedisManager): Для хранения задач и прогресса.
-        task_tracker (TaskTracker): Отслеживание прогресса задач.
     """
 
     def __init__(self):
@@ -38,7 +36,6 @@ class DataManager:
         self.search_engine = SearchEngine(self.hh_client)
         self.resume_repo = ResumeRepository(next(get_db()))
         self.redis_manager = RedisManager()
-        self.task_tracker = TaskTracker()
 
     def search_resumes(
     self,
@@ -55,7 +52,7 @@ class DataManager:
         Синхронно выполняет поиск резюме и сохраняет результаты.
         Возвращает task_id для последующего получения результата.
         """
-        task_id = self.task_tracker.create_task(description=description)
+        task_id = self.redis_manager.create_task([], description=description)
 
         try:
             resumes = self.search_engine.search(
@@ -73,10 +70,10 @@ class DataManager:
 
             resume_ids = [r.get("id") for r in resumes if r.get("id")]
             self.redis_manager.update_task_resume_ids(task_id, resume_ids)
-            self.task_tracker.update_progress(task_id, 100, "completed")
+            self.redis_manager.update_task_progress(task_id, 100, "completed")
         except Exception as e:
             logger.error(f"Ошибка при выполнении поиска: {e}")
-            self.task_tracker.update_progress(task_id, 0, "failed")
+            self.redis_manager.update_task_progress(task_id, 0, "failed")
             raise  # Перебрасываем ошибку, чтобы Flask мог обработать её
 
         return task_id
@@ -173,41 +170,41 @@ class DataManager:
         Returns:
             str: task_id новой задачи.
         """
-        task_id = self.task_tracker.create_task(description="Получение списка вакансий")
+        task_id = self.redis_manager.create_task([], description="Получение списка вакансий")
 
         def background_get_vacancies():
             try:
                 vacancies = self.search_engine.get_company_vacancies()
                 resume_ids = [v.get("id") for v in vacancies if v.get("id")]
                 self.redis_manager.update_task_resume_ids(task_id, resume_ids)
-                self.task_tracker.update_progress(task_id, 100, "completed")
+                self.redis_manager.update_task_progress(task_id, 100, "completed")
             except Exception as e:
                 logger.error(f"Ошибка при получении вакансий: {e}")
-                self.task_tracker.update_progress(task_id, 0, "failed")
+                self.redis_manager.update_task_progress(task_id, 0, "failed")
 
         Thread(target=background_get_vacancies).start()
         return task_id
 
-    # def start_get_negotiations_task(self, vacancy_id: int) -> str:
-    #     """
-    #     Запускает фоновую задачу получения новых откликов по вакансии.
-    #     Returns:
-    #         str: task_id новой задачи.
-    #     """
-    #     task_desc = f"Отклики по вакансии {vacancy_id}"
-    #     task_id = self.task_tracker.create_task(description=task_desc)
+    def start_get_negotiations_task(self, vacancy_id: int) -> str:
+        """
+        Запускает фоновую задачу получения новых откликов по вакансии.
+        Returns:
+            str: task_id новой задачи.
+        """
+        task_desc = f"Отклики по вакансии {vacancy_id}"
+        task_id = self.redis_manager.create_task(description=task_desc)
 
-    #     def background_get_negotiations():
-    #         try:
-    #             resume_ids = self.search_engine.get_new_resume_ids_from_negotiations(vacancy_id)
-    #             self.redis_manager.update_task_resume_ids(task_id, resume_ids)
-    #             self.task_tracker.update_progress(task_id, 100, "completed")
-    #         except Exception as e:
-    #             logger.error(f"Ошибка при получении откликов: {e}")
-    #             self.task_tracker.update_progress(task_id, 0, "failed")
+        def background_get_negotiations():
+            try:
+                resume_ids = self.search_engine.get_new_resume_ids_from_negotiations(vacancy_id)
+                self.redis_manager.update_task_resume_ids(task_id, resume_ids)
+                self.redis_manager.update_task_progress(task_id, 100, "completed")
+            except Exception as e:
+                logger.error(f"Ошибка при получении откликов: {e}")
+                self.redis_manager.update_task_progress(task_id, 0, "failed")
 
-    #     Thread(target=background_get_negotiations).start()
-    #     return task_id
+        Thread(target=background_get_negotiations).start()
+        return task_id
 
     def get_negotiations_by_vacancy(self, vacancy_id) -> List[Dict[str, Any]]:
         """

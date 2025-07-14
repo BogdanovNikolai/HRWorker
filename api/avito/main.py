@@ -284,4 +284,4 @@ if __name__ == "__main__":
                         'received_at': datetime.utcnow(),
                     }
 
-                    pprint(answer)
+                    logger.info(answer)

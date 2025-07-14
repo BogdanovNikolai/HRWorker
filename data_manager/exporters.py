@@ -211,7 +211,6 @@ class CSVExporter(Exporter):
         data = self.prepare_data()
         if not data:
             logger.warning("Нет данных для экспорта в CSV")
-            print("Нет данных для экспорта")
             return
 
         fieldnames = data[0].keys() if data else []
@@ -225,10 +224,8 @@ class CSVExporter(Exporter):
                 writer.writeheader()
                 writer.writerows(data)
             logger.info(f"CSV-файл успешно сохранён: {file_path}")
-            print(f"Файл успешно сохранён: {file_path}")
         except Exception as e:
             logger.error(f"Ошибка при сохранении CSV: {e}")
-            print(f"Ошибка при сохранении CSV: {e}")
             raise
 
 
@@ -247,7 +244,6 @@ class XLSXExporter(Exporter):
         data = self.prepare_data()
         if not data:
             logger.warning("Нет данных для экспорта в Excel")
-            print("Нет данных для экспорта")
             return
 
         wb = Workbook()
@@ -286,10 +282,8 @@ class XLSXExporter(Exporter):
         try:
             wb.save(file_path)
             logger.info(f"XLSX-файл успешно сохранён: {file_path}")
-            print(f"Файл успешно сохранён: {file_path}")
         except Exception as e:
             logger.error(f"Ошибка при сохранении XLSX: {e}")
-            print(f"Ошибка при сохранении XLSX: {e}")
             raise
 
 class EStaffExporter:
