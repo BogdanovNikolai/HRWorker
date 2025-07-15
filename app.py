@@ -225,11 +225,17 @@ def show_resumes(task_id: str, source: str = "hh"):
 
     safe_json = json.dumps(negotiation_map)
 
+    # Determine if we should show links
+    show_links = True
+    if source == "avito" and negotiation_map and len(negotiation_map) > 0:
+        show_links = False
+
     return render_template(
         "resume_list.html",
         task_id=task_id,
         source=source,
-        resume_negotiation_map=Markup(safe_json)
+        resume_negotiation_map=Markup(safe_json),
+        show_links=show_links
     )
 
 @log_function_call

@@ -140,6 +140,7 @@ class AvitoAPIClient:
         aggregated_results = []
         page = 1
         per_page = min(per_page, 100)
+        error_count = 0  # Счетчик ошибок подряд
 
         while len(aggregated_results) < total:
             time.sleep(1.1)
@@ -178,6 +179,7 @@ class AvitoAPIClient:
 
                         page += 1
                         success = True
+                        error_count = 0  # Сбросить счетчик ошибок
                         break
                     elif response.status_code == 429:
                         logger.warning("Rate limit exceeded. Waiting...")
@@ -194,10 +196,23 @@ class AvitoAPIClient:
 
             if not success:
                 logger.error(f"Не удалось получить страницу {page}")
+                error_count += 1
+                if error_count >= 3:
+                    logger.error(f"Достигнут лимит ошибок (3). Возвращаю найденные резюме: {len(aggregated_results)}")
+                    break
                 
+        # Удаляем дубликаты по id
+        unique_results = []
+        seen_ids = set()
+        for item in aggregated_results:
+            item_id = item.get('id')
+            if item_id and item_id not in seen_ids:
+                unique_results.append(item)
+                seen_ids.add(item_id)
+
         result = {
-            "found": len(aggregated_results),
-            "items": aggregated_results[:total]
+            "found": len(unique_results),
+            "items": unique_results[:total]
         }
 
         return result

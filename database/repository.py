@@ -56,7 +56,7 @@ class ResumeRepository:
             resume_data_params = resume_data.get("params")
             experience = json.dumps(resume_data_params.get("experience_list"))
             exp = resume_data_params.get("experience")
-            months = int(exp) if exp else None
+            months = int(exp) * 12 if exp else None  # <-- Исправление: всегда переводим в месяцы
             link = resume_data.get("url")
         else: # hh
             experience = json.dumps(resume_data.get("experience"))

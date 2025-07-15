@@ -48,7 +48,9 @@
           <th>Зарплата</th>
           <th>Опыт (мес)</th>
           <th>Соответствие (%)</th>
+          {% if show_links %}
           <th>Ссылка</th>
+          {% endif %}
           <th class="text-center">Выбрать</th>
         </tr>
       </thead>
@@ -60,6 +62,9 @@
 </div>
 
 <script>
+  // Передаем show_links из Jinja в JS
+  const show_links = {{ show_links | tojson }};
+
   // Глобальная переменная для хранения данных резюме
   let allResumes = [];
 
@@ -230,7 +235,7 @@
               ? resume.match_percent + '%'
               : '<span class="text-muted">—</span>'
           }</td>
-          <td>${resume.link ? `<a href="${resume.link}" target="_blank" class="btn btn-sm btn-outline-primary">Ссылка</a>` : '<span class="text-muted">—</span>'}</td>
+          ${show_links ? (resume.link ? `<td><a href="${resume.link}" target="_blank" class="btn btn-sm btn-outline-primary">Ссылка</a></td>` : '<td><span class="text-muted">—</span></td>') : ''}
           <td class="text-center">
             <div class="form-check form-check-inline m-0">
               <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">
