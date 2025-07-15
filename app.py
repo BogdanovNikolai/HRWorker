@@ -38,6 +38,7 @@ def init_scheduler():
     global scheduler
     scheduler = BackgroundScheduler()
     scheduler.add_job(dm.update_vacancies_cache, 'cron', hour=8)
+    scheduler.add_job(dm.update_vacancies_cache_avito, 'cron', hour=8)
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
 
@@ -166,6 +167,51 @@ def vacancy_responses(vacancy_id: int, source: str = "hh"):
 
     return redirect(url_for("show_resumes", task_id=task_id, source=source, resume_negotiation_map=json.dumps(resume_to_negotiation)))
 
+# --- Роуты для вакансий Avito ---
+@log_function_call
+@app.route("/vacancies_avito")
+def vacancies_avito():
+    """
+    Отображает список вакансий Avito из кэша Redis.
+    """
+    cache_key = "cached_company_vacancies_avito"
+    cached_data = dm.redis_manager.client.get(cache_key)
+
+    if cached_data:
+        try:
+            vacancy_list = json.loads(cached_data)
+            return render_template("vacancies_avito.html", vacancies=vacancy_list)
+        except json.JSONDecodeError as e:
+            logger.error(f"Ошибка декодирования JSON из кэша Avito: {e}")
+            return render_template("vacancies_avito.html", error="Не удалось загрузить кэшированные данные")
+    else:
+        return render_template("vacancies_avito.html", error="Данные о вакансиях Avito ещё не загружены. Попробуйте позже.")
+    
+@app.route("/update-vacancies-cache-avito")
+def manual_update_vacancies_avito():
+    """Ручное обновление кэша вакансий Avito."""
+    dm.update_vacancies_cache_avito()
+    return "Кэш вакансий Avito обновлён."
+
+@log_function_call
+@app.route("/vacancies_avito/<int:vacancy_id>")
+def vacancy_responses_avito(vacancy_id: int):
+    """
+    Отклики по конкретной вакансии Avito.
+    Сохраняет список откликов как новую задачу и перенаправляет на /resumes/<task_id>.
+    """
+    resume_ids, response_ids = dm.get_new_resume_ids_from_negotiations_avito(vacancy_id)
+
+    # маппинг resume_id: response_id для передачи на фронт
+    resume_to_response = dict(zip(resume_ids, response_ids))
+    
+    vacancy = dm.get_vacancy_by_id_avito(vacancy_id)
+    description = vacancy.get("description", "") if vacancy else ""
+
+    task_id = redis_manager.create_task(resume_ids, description=description)
+
+    return redirect(url_for("show_resumes", task_id=task_id, source="avito", resume_negotiation_map=json.dumps(resume_to_response)))
+
 @log_function_call
 @app.route("/resumes/<task_id>")
 def show_resumes(task_id: str, source: str = "hh"):
@@ -287,7 +333,26 @@ def load_resume_limits():
 @app.route("/api/resumes/<task_id>")
 def get_resumes_json(task_id: str):
     source = request.args.get("source", "hh")
-    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000, source=source)
+    map_json = request.args.get("resume_negotiation_map")
+    negotiation_map = None
+    if map_json:
+        try:
+            negotiation_map = json.loads(map_json)
+        except Exception:
+            negotiation_map = None
+
+    responses = None
+    if source == "avito" and negotiation_map:
+        # Собираем все response_id и получаем отклики через DataManager
+        response_ids = list(negotiation_map.values())
+        # Получаем все отклики (responses) по этим ID
+        # Используем метод AvitoAPIClient.get_applications_by_ids
+        responses_data = None
+        if response_ids:
+            responses_data = dm.avito_client.get_applications_by_ids(response_ids)
+            responses = responses_data.get("applies", []) if responses_data else []
+
+    result = dm.get_task_resumes(task_id=task_id, offset=0, limit=1000, source=source, negotiation_map=negotiation_map, responses=responses)
     resumes = result.get("items", [])
     
     # Получаем description из Redis
@@ -323,18 +388,13 @@ def get_resumes_json(task_id: str):
             if not link:
                 link = resume.get("url")
             
-            #total_experience_months = resume.get("total_experience") or 0
-            #total_experience_months = total_experience_temp.get("months", 0) or 0
             total_experience_months = \
                                 resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0
         else:
-            link = f"{resume.get("link")}" or None # TODO баг, почему-то по умолчанию нет приставки avito.ru. Из кэша? пока убрал
+            link = f"{resume.get('link')}" or None
             if not link:
-                link = f"{resume.get("url")}"
-            
+                link = f"{resume.get('url')}"
             link = f"{link}"
-            #total_experience_months = resume.get("total_experience") or 0
-            #total_experience_months = total_experience_temp.get("months", 0) or 0
             total_experience_months = \
                                 resume.get("total_experience", {}).get("months", 0) if resume.get("total_experience") else 0
         
@@ -346,7 +406,7 @@ def get_resumes_json(task_id: str):
             "last_name": resume.get("last_name"),
             "middle_name": resume.get("middle_name"),
             "age": resume.get("age"),
-            "area": resume.get("area", {}).get("name") if resume.get("area") else "-",
+            "area": resume.get("area", {}).get("name") if isinstance(resume.get("area"), dict) else resume.get("area", "-"),
             "title": resume.get("title"),
             "salary": f"{resume.get('salary', {}).get('amount')} {resume.get('salary', {}).get('currency')}" if resume.get("salary") else "—",
             "total_experience": total_experience_months,
@@ -354,7 +414,7 @@ def get_resumes_json(task_id: str):
             "link": link,
         })
 
-    return {"resumes": processed_resumes}
+    return {"items": processed_resumes, "found": len(processed_resumes)}
 
 @log_function_call
 @app.route("/api/read_negotiations", methods=["POST"])
@@ -373,4 +433,27 @@ def read_negotiations():
             return {"error": "Не удалось пометить отклики как прочитанные"}, 500
     except Exception as e:
         logger.error(f"Ошибка при пометке откликов: {e}")
+        return {"error": "Внутренняя ошибка сервера"}, 500
+
+@log_function_call
+@app.route("/api/read_negotiations_avito", methods=["POST"])
+def read_negotiations_avito():
+    data = request.get_json()
+    vacancy_id = data.get("vacancy_id")
+    response_ids = data.get("response_ids", [])
+
+    if not vacancy_id:
+        return {"error": "Не передан vacancy_id"}, 400
+
+    if not response_ids:
+        return {"error": "Не переданы response_ids"}, 400
+
+    try:
+        success = dm.read_negotiations_avito(vacancy_id, response_ids)
+        if success:
+            return {"status": "ok"}
+        else:
+            return {"error": "Не удалось пометить отклики Avito как прочитанные"}, 500
+    except Exception as e:
+        logger.error(f"Ошибка при пометке откликов Avito: {e}")
         return {"error": "Внутренняя ошибка сервера"}, 500

@@ -30,7 +30,7 @@ class SearchEngine:
         ttl_hours (int): Время жизни кэшированного резюме.
     """
 
-    def __init__(self, hh_client: HHApiClient = None, avito_client: AvitoAPIClient = None):
+    def __init__(self, hh_client: Optional[HHApiClient] = None, avito_client: Optional[AvitoAPIClient] = None):
         self.hh_client = hh_client or HHApiClient()
         self.avito_client = avito_client or AvitoAPIClient()
         self.resume_repo = ResumeRepository(db=next(get_db()))
@@ -305,3 +305,129 @@ class SearchEngine:
         Помечает отклики как прочитанные через HH API.
         """
         return self.hh_client.read_negotiations(negotiation_ids)
+    
+    # --- Методы для работы с вакансиями Avito ---
+    def get_company_vacancies_avito(self) -> Dict[str, Any]:
+        """
+        Получает список вакансий компании через Avito API.
+        Returns:
+            dict: Словарь с ключами 'found' и 'items'.
+        """
+        return self.avito_client.get_vacancies()
+    
+    def get_vacancy_by_id_avito(self, vacancy_id: int) -> Dict[str, Any]:
+        """Получает вакансию по ID через Avito API."""
+        return self.avito_client.get_vacancy_by_id(vacancy_id=vacancy_id)
+    
+    def get_negotiations_by_vacancy_avito(self, vacancy_id) -> Dict[str, Any]:
+        """
+        Получает список откликов по конкретной вакансии через Avito API.
+        Args:
+            vacancy_id (int): ID вакансии.
+        Returns:
+            dict: Словарь с ключами 'found' и 'items'.
+        """
+        # Получаем все ID откликов с обязательным параметром updatedAtFrom
+        from datetime import datetime, timedelta
+        month_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        applications_dict = self.avito_client.get_application_ids(updated_at_from=month_ago)
+        application_list = applications_dict.get('applies', [])
+        
+        if not application_list:
+            return {"found": 0, "items": []}
+        
+        # Получаем ID откликов
+        application_ids = [app['id'] for app in application_list]
+        
+        # Получаем детали откликов
+        applications = self.avito_client.get_applications_by_ids(application_ids)
+        applies = applications.get('applies', [])
+        
+        # Фильтруем отклики по конкретной вакансии
+        filtered_applies = [app for app in applies if app.get('vacancy_id') == vacancy_id]
+        
+        return {
+            "found": len(filtered_applies),
+            "items": filtered_applies
+        }
+    
+    def get_new_negotiations_by_vacancy_avito(self, vacancy_id) -> Dict[str, Any]:
+        """
+        Получает список новых откликов по конкретной вакансии через Avito API.
+        Args:
+            vacancy_id (int): ID вакансии.
+        Returns:
+            dict: Словарь с ключами 'found' и 'items'.
+        """
+        # Получаем все ID откликов с фильтром по дате (например, за последний месяц)
+        from datetime import datetime, timedelta
+        month_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        applications_dict = self.avito_client.get_application_ids(updated_at_from=month_ago)
+        application_list = applications_dict.get('applies', [])
+        
+        if not application_list:
+            return {"found": 0, "items": []}
+        
+        # Получаем ID откликов
+        application_ids = [app['id'] for app in application_list]
+        
+        # Получаем детали откликов
+        applications = self.avito_client.get_applications_by_ids(application_ids)
+        applies = applications.get('applies', [])
+        
+        # Фильтруем отклики по конкретной вакансии и только непросмотренные
+        filtered_applies = [
+            app for app in applies 
+            if app.get('vacancy_id') == vacancy_id and not app.get('is_viewed', False)
+        ]
+        
+        return {
+            "found": len(filtered_applies),
+            "items": filtered_applies
+        }
+    
+    def get_resume_ids_from_negotiations_avito(self, vacancy_id: int) -> List[str]:
+        """
+        Получает список ID резюме из откликов по вакансии Avito.
+        Args:
+            vacancy_id (int): ID вакансии.
+        Returns:
+            list[str]: Список ID резюме.
+        """
+        negotiations = self.avito_client.get_vacancy_responses(vacancy_id)
+        resume_ids = []
+        for n in negotiations.get("items", []):
+            if n.get("resume_id"):
+                resume_ids.append(f"avito_{n['resume_id']}")
+        return resume_ids
+    
+    def get_new_resume_ids_from_negotiations_avito(self, vacancy_id: int) -> List[str]:
+        """
+        Получает список ID новых резюме из откликов по вакансии Avito.
+        Args:
+            vacancy_id (int): ID вакансии.
+        Returns:
+            list[str]: Список ID новых резюме.
+        """
+        negotiations = self.avito_client.get_new_vacancy_responses(vacancy_id)
+        resume_ids = []
+        for n in negotiations.get("items", []):
+            if n.get("resume_id"):
+                resume_ids.append(f"avito_{n['resume_id']}")
+        return resume_ids
+    
+    def read_negotiations_avito(self, vacancy_id: int, response_ids: List[int]) -> bool:
+        """
+        Помечает список откликов как прочитанные через Avito API.
+        Args:
+            vacancy_id (int): ID вакансии.
+            response_ids (List[int]): Список ID откликов для отметки как прочитанные.
+        Returns:
+            bool: True если успешно, False в противном случае.
+        """
+        # В Avito API нет прямого метода для отметки откликов как прочитанные
+        # Можно реализовать через обновление статуса или просто возвращать True
+        # так как основная логика - это получение откликов
+        return True

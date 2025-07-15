@@ -117,13 +117,17 @@
   document.addEventListener("DOMContentLoaded", function () {
     const taskId = "{{ task_id }}";
     const source = "{{ source }}"
-    const apiUrl = `/api/resumes/${taskId}?source=${encodeURIComponent(source)}`;
+    const resumeNegotiationMap = JSON.parse(document.getElementById("resume-negotiation-map").textContent || '{}');
+    let apiUrl = `/api/resumes/${taskId}?source=${encodeURIComponent(source)}`;
+    // Добавляем resume_negotiation_map в запрос, если он есть
+    if (Object.keys(resumeNegotiationMap).length > 0) {
+      apiUrl += `&resume_negotiation_map=${encodeURIComponent(JSON.stringify(resumeNegotiationMap))}`;
+    }
     const tbody = document.querySelector("#resume-table tbody");
     const foundCounter = document.getElementById("found-counter");
 
     let resumesData = [];
     let sortConfig = { key: null, direction: 'asc' };
-    const resumeNegotiationMap = JSON.parse(document.getElementById("resume-negotiation-map").textContent || '{}');
 
     // --- Новая логика: пометить как прочитанные ---
     document.getElementById("mark-read-btn").addEventListener("click", function () {
@@ -173,7 +177,16 @@
     fetch(apiUrl)
       .then(response => response.json())
       .then(data => {
-        if (!data.resumes || data.resumes.length === 0) {
+        console.log('API response:', data); // Логируем весь ответ
+        let resumesArr = [];
+        if (data.items && data.items.length > 0) {
+          resumesArr = data.items;
+        } else if (data.resumes && data.resumes.length > 0) {
+          resumesArr = data.resumes;
+        }
+
+        if (resumesArr.length === 0) {
+          console.log('Нет резюме для отображения (data.items и data.resumes пусты или отсутствуют)');
           tbody.innerHTML = `
             <tr>
               <td colspan="9" class="text-center text-muted py-4">Резюме не найдены</td>
@@ -183,9 +196,10 @@
           return;
         }
 
-        resumesData = data.resumes;
+        resumesData = resumesArr;
         allResumes = [...resumesData]; // Сохраняем копию для экспорта
         foundCounter.textContent = "Найдено: " + resumesData.length;
+        console.log('Резюме для отображения:', resumesData);
         renderTable(resumesData);
         setupSortHandlers();
       })

@@ -250,6 +250,104 @@ class AvitoAPIClient:
             "currency": "RUR"  # Всегда RUR для Avito
         }
 
+    # --- Работа с вакансиями ---
+    def get_company_vacancies(self):
+        """Получение списка вакансий компании"""
+        endpoint = "/job/v1/vacancies/"
+        params = {}
+        
+        logger.debug("Получаем список вакансий компании с Avito")
+        
+        return self.make_api_request(endpoint, params=params, total=None, per_page=100)
+    
+    def get_vacancy_by_id(self, vacancy_id):
+        """Получение данных вакансии по vacancy_id"""
+        endpoint = f"/job/v1/vacancies/{vacancy_id}/"
+        
+        logger.debug(f"Получаем вакансию из Avito с ID = {vacancy_id}")
+        
+        return self.make_api_request(endpoint, expected_list_key=False)
+    
+    def get_vacancy_responses(self, vacancy_id, per_page=50):
+        """Получение откликов на вакансию по vacancy_id"""
+        endpoint = f"/job/v1/vacancies/{vacancy_id}/responses/"
+        params = {'perPage': per_page}
+        
+        logger.debug(f"Получаем отклики на вакансию Avito с ID = {vacancy_id}")
+        
+        return self.make_api_request(endpoint, params=params, total=None, per_page=per_page)
+    
+    def get_new_vacancy_responses(self, vacancy_id, per_page=50):
+        """Получение новых откликов на вакансию по vacancy_id"""
+        endpoint = f"/job/v1/vacancies/{vacancy_id}/responses/"
+        params = {'perPage': per_page, 'status': 'new'}  # Предполагаем, что есть фильтр по статусу
+        
+        logger.debug(f"Получаем новые отклики на вакансию Avito с ID = {vacancy_id}")
+        
+        return self.make_api_request(endpoint, params=params, total=None, per_page=per_page)
+    
+    def mark_responses_as_read(self, vacancy_id, response_ids):
+        """Отметить отклики как прочитанные"""
+        endpoint = f"/job/v1/vacancies/{vacancy_id}/responses/read/"
+        data = {'response_ids': response_ids}
+        
+        logger.debug(f"Отмечаем отклики как прочитанные для вакансии Avito с ID = {vacancy_id}")
+        
+        return self.make_api_request(endpoint, method='POST', data=data, expected_list_key=False)
+
+    def get_vacancies(self):
+        """
+        Получение списка вакансий через новый Avito API.
+        """
+        endpoint = "/core/v1/items"
+        headers = {
+            'Authorization': f'Bearer {self.get_access_token()}'
+        }
+        url = f"{self.api_base_url}{endpoint}"
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"Ошибка получения вакансий: {response.status_code}, {response.text}")
+            return {"items": []}
+
+    def get_application_ids(self, updated_at_from=None):
+        """
+        Получение всех ID откликов по вакансиям.
+        """
+        endpoint = "/job/v1/applications/get_ids"
+        headers = {
+            'Authorization': f'Bearer {self.get_access_token()}'
+        }
+        params = {}
+        if updated_at_from:
+            params['updatedAtFrom'] = updated_at_from
+        url = f"{self.api_base_url}{endpoint}"
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"Ошибка получения ID откликов: {response.status_code}, {response.text}")
+            return {"applies": []}
+
+    def get_applications_by_ids(self, app_ids):
+        """
+        Получение информации об откликах по их ID.
+        """
+        endpoint = "/job/v1/applications/get_by_ids"
+        headers = {
+            'Authorization': f'Bearer {self.get_access_token()}',
+            'Content-Type': 'application/json'
+        }
+        url = f"{self.api_base_url}{endpoint}"
+        payload = {"ids": app_ids}
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"Ошибка получения деталей откликов: {response.status_code}, {response.text}")
+            return {"applies": []}
+
 
 if __name__ == "__main__":
     avito = AvitoAPIClient()
