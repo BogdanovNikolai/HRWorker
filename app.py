@@ -91,29 +91,115 @@ def search():
     После поиска перенаправляет на /resumes/<task_id>
     """
     
-    keywords = request.args.get("keywords", "").strip()
-    salary_to = request.args.get("salary_to", type=int)
-    region = request.args.getlist('region')
-    not_living = bool(request.args.get("not_living"))
-    description = request.args.get("description", "").strip()
-    total = request.args.get("total", default=20, type=int)
+    # Основные параметры
+    keywords_list = request.args.getlist("keywords[]")
     source = request.args.get("source", default="hh")
-
+    region = request.args.getlist('region')
+    total = request.args.get("total", default=20, type=int)
+    per_page = request.args.get("per_page", default=20, type=int)
+    description = request.args.get("description", "").strip()
+    
+    # Параметры текстового поиска (множественные)
+    text_logic_list = request.args.getlist("text_logic[]")
+    text_field_list = request.args.getlist("text_field[]")
+    text_period = request.args.get("text_period")
+    
+    # Обработка множественных текстовых полей
+    # Если переданы множественные поля, создаем сложный запрос
+    if keywords_list and len(keywords_list) > 1:
+        # Создаем сложный запрос с множественными условиями
+        # Объединяем все ключевые слова в один запрос
+        keywords = " ".join(keywords_list)
+        
+        # Используем логику из первого поля или по умолчанию
+        text_logic = text_logic_list[0] if text_logic_list else "all"
+        text_field = text_field_list[0] if text_field_list else "everywhere"
+        
+        # Логируем информацию о множественных полях
+        logger.info(f"Множественные текстовые поля: {len(keywords_list)} полей")
+        for i, (kw, logic, field) in enumerate(zip(keywords_list, text_logic_list, text_field_list)):
+            logger.info(f"  Поле {i+1}: '{kw}' (логика: {logic}, поле: {field})")
+    else:
+        # Обратная совместимость с одним полем
+        keywords = keywords_list[0] if keywords_list else ""
+        text_logic = text_logic_list[0] if text_logic_list else None
+        text_field = text_field_list[0] if text_field_list else None
+    
+    # Параметры зарплаты
+    salary_from = request.args.get("salary_from", type=int)
+    salary_to = request.args.get("salary_to", type=int)
+    currency = request.args.get("currency")
+    
+    # Параметры фильтрации
+    age_from = request.args.get("age_from", type=int)
+    age_to = request.args.get("age_to", type=int)
+    experience = request.args.getlist("experience")
+    education_levels = request.args.getlist("education_levels")
+    employment = request.args.getlist("employment")
+    schedule = request.args.getlist("schedule")
+    gender = request.args.get("gender")
+    job_search_status = request.args.getlist("job_search_status")
+    
+    # Параметры дат
+    period = request.args.get("period", type=int)
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    
+    # Параметры переезда
+    relocation = request.args.get("relocation")
+    
+    # Дополнительные фильтры
+    order_by = request.args.get("order_by")
+    labels = request.args.getlist("label")
+    
+    # Валидация обязательных параметров
     if not keywords:
         return render_template("search.html", error="Введите ключевые слова для поиска", regions=regions)
 
     if not region:
         return render_template("search.html", error="Выберите регион для поиска", regions=regions)
+    
+    # Валидация лимитов
+    if total > 2000:
+        return render_template("search.html", error="Количество резюме не может превышать 2000", regions=regions)
+    
+    if per_page > 100:
+        return render_template("search.html", error="Количество резюме на страницу не может превышать 100", regions=regions)
 
     try:
         task_id = dm.search_resumes(
             keywords=keywords,
-            salary_to=salary_to,
-            region=region,
-            not_living=not_living,
-            total=total,
-            description=description,
             source=source,
+            region=region,
+            total=total,
+            per_page=per_page,
+            description=description,
+            # Параметры текстового поиска
+            text_logic=text_logic,
+            text_field=text_field,
+            text_period=text_period,
+            # Параметры зарплаты
+            salary_from=salary_from,
+            salary_to=salary_to,
+            currency=currency,
+            # Параметры фильтрации
+            age_from=age_from,
+            age_to=age_to,
+            experience=experience,
+            education_levels=education_levels,
+            employment=employment,
+            schedule=schedule,
+            gender=gender,
+            job_search_status=job_search_status,
+            # Параметры дат
+            period=period,
+            date_from=date_from,
+            date_to=date_to,
+            # Параметры переезда
+            relocation=relocation,
+            # Дополнительные фильтры
+            order_by=order_by,
+            labels=labels,
         )
         return redirect(url_for("show_resumes", task_id=task_id, source=source))
     except ValueError as e:

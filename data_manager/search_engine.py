@@ -72,12 +72,12 @@ class SearchEngine:
             return None
         return self._format_cached_resume(cached)
 
-    def is_cache_valid(self, resume: Dict[str, Any]) -> bool:
+    def is_cache_valid(self, resume: Any) -> bool:
         """
         Проверяет, истёк ли срок жизни резюме.
 
         Args:
-            resume (dict): Резюме из кэша.
+            resume: Резюме из кэша (объект БД).
 
         Returns:
             bool: True, если резюме ещё актуально.
@@ -132,13 +132,37 @@ class SearchEngine:
     def search(
     self,
     keywords: str,
-    salary_to: Optional[int] = None,
+    source: str = "hh",
     region: List[str] = ["113"],
-    not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
     description: Optional[str] = "",
-    source: str = "hh",
+    # Параметры текстового поиска
+    text_logic: Optional[str] = None,
+    text_field: Optional[str] = None,
+    text_period: Optional[str] = None,
+    # Параметры зарплаты
+    salary_from: Optional[int] = None,
+    salary_to: Optional[int] = None,
+    currency: Optional[str] = None,
+    # Параметры фильтрации
+    age_from: Optional[int] = None,
+    age_to: Optional[int] = None,
+    experience: Optional[List[str]] = None,
+    education_levels: Optional[List[str]] = None,
+    employment: Optional[List[str]] = None,
+    schedule: Optional[List[str]] = None,
+    gender: Optional[str] = None,
+    job_search_status: Optional[List[str]] = None,
+    # Параметры дат
+    period: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    # Параметры переезда
+    relocation: Optional[str] = None,
+    # Дополнительные фильтры
+    order_by: Optional[str] = None,
+    labels: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
         """
         Выполняет поиск резюме по ключевым словам и фильтрам.
@@ -150,14 +174,92 @@ class SearchEngine:
         logger.info(f"Начинаем поиск резюме на {source}: {keywords}, зарплата до {salary_to}, регион {region}")
         
         if source == "hh":
+            # Логируем входные параметры
+            logger.info("=== ПАРАМЕТРЫ ПОИСКА ===")
+            logger.info(f"Ключевые слова: {keywords}")
+            logger.info(f"Регион: {region}")
+            logger.info(f"Общее количество: {total}")
+            logger.info(f"На страницу: {per_page}")
+            logger.info(f"Описание: {description}")
+            
+            # Логируем текстовые параметры
+            if any([text_logic, text_field, text_period]):
+                logger.info("--- Текстовые параметры ---")
+                logger.info(f"Логика поиска: {text_logic}")
+                logger.info(f"Поле поиска: {text_field}")
+                logger.info(f"Период опыта: {text_period}")
+            
+            # Логируем параметры зарплаты
+            if any([salary_from, salary_to, currency]):
+                logger.info("--- Параметры зарплаты ---")
+                logger.info(f"Зарплата от: {salary_from}")
+                logger.info(f"Зарплата до: {salary_to}")
+                logger.info(f"Валюта: {currency}")
+            
+            # Логируем параметры фильтрации
+            if any([age_from, age_to, experience, education_levels, employment, schedule, gender, job_search_status]):
+                logger.info("--- Параметры фильтрации ---")
+                logger.info(f"Возраст от: {age_from}")
+                logger.info(f"Возраст до: {age_to}")
+                logger.info(f"Опыт работы: {experience}")
+                logger.info(f"Образование: {education_levels}")
+                logger.info(f"Тип занятости: {employment}")
+                logger.info(f"График работы: {schedule}")
+                logger.info(f"Пол: {gender}")
+                logger.info(f"Статус поиска: {job_search_status}")
+            
+            # Логируем параметры дат
+            if any([period, date_from, date_to]):
+                logger.info("--- Параметры дат ---")
+                logger.info(f"Период (дни): {period}")
+                logger.info(f"Дата от: {date_from}")
+                logger.info(f"Дата до: {date_to}")
+            
+            # Логируем параметры переезда
+            if relocation:
+                logger.info("--- Параметры переезда ---")
+                logger.info(f"Готовность к переезду: {relocation}")
+            
+            # Логируем дополнительные фильтры
+            if any([order_by, labels]):
+                logger.info("--- Дополнительные фильтры ---")
+                logger.info(f"Сортировка: {order_by}")
+                logger.info(f"Метки: {labels}")
+            
+            logger.info("=== КОНЕЦ ПАРАМЕТРОВ ===")
+            
             raw_search_result = self.hh_client.get_all_resumes(
                 keywords=keywords,
-                salary_to=salary_to,
                 region=region,
-                not_living=not_living,
                 total=total,
                 per_page=per_page,
-                description=description
+                description=description,
+                # Параметры текстового поиска
+                text_logic=text_logic,
+                text_field=text_field,
+                text_period=text_period,
+                # Параметры зарплаты
+                salary_from=salary_from,
+                salary_to=salary_to,
+                currency=currency,
+                # Параметры фильтрации
+                age_from=age_from,
+                age_to=age_to,
+                experience=experience,
+                education_levels=education_levels,
+                employment=employment,
+                schedule=schedule,
+                gender=gender,
+                job_search_status=job_search_status,
+                # Параметры дат
+                period=period,
+                date_from=date_from,
+                date_to=date_to,
+                # Параметры переезда
+                relocation=relocation,
+                # Дополнительные фильтры
+                order_by=order_by,
+                labels=labels,
             )
         elif source == "avito":
             raw_search_result = self.avito_client.resumes(

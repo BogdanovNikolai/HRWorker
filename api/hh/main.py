@@ -120,7 +120,16 @@ class HHApiClient:
         cached = redis_manager.client.get(cache_key)
         if cached:
             logger.debug(f"Ответ взят из кэша: {cache_key}")
-            return json.loads(cached)
+            try:
+                if isinstance(cached, str):
+                    return json.loads(cached)
+                elif isinstance(cached, bytes):
+                    return json.loads(cached.decode('utf-8'))
+                else:
+                    return cached
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Ошибка декодирования кэша: {cache_key}")
+                return None
         return None
 
     def _save_to_cache(self, url: str, params: dict, data: dict) -> None:
@@ -145,7 +154,7 @@ class HHApiClient:
         Переключается на следующий токен из списка.
         Работает только с access_token.
         """
-        tokens = conf.HH_ACCESS_TOKENS
+        tokens = [token for token in conf.HH_ACCESS_TOKENS if token is not None]
         try:
             current_index = tokens.index(self.access_token)
         except ValueError:
@@ -206,12 +215,36 @@ class HHApiClient:
     def get_all_resumes(
         self,
         keywords: str,
-        salary_to: Optional[int] = None,
         region: List[str] = ["113"],
-        not_living: bool = False,
         total: int = 1,
         per_page: int = 50,
-        description: Optional[str] = ""
+        description: Optional[str] = "",
+        # Параметры текстового поиска
+        text_logic: Optional[str] = None,
+        text_field: Optional[str] = None,
+        text_period: Optional[str] = None,
+        # Параметры зарплаты
+        salary_from: Optional[int] = None,
+        salary_to: Optional[int] = None,
+        currency: Optional[str] = None,
+        # Параметры фильтрации
+        age_from: Optional[int] = None,
+        age_to: Optional[int] = None,
+        experience: Optional[List[str]] = None,
+        education_levels: Optional[List[str]] = None,
+        employment: Optional[List[str]] = None,
+        schedule: Optional[List[str]] = None,
+        gender: Optional[str] = None,
+        job_search_status: Optional[List[str]] = None,
+        # Параметры дат
+        period: Optional[int] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        # Параметры переезда
+        relocation: Optional[str] = None,
+        # Дополнительные фильтры
+        order_by: Optional[str] = None,
+        labels: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         if per_page > 50:
             raise ValueError("Параметр 'per_page' не может быть больше 50.")
@@ -224,7 +257,13 @@ class HHApiClient:
         page = 0
         empty_or_few_count = 0  # Счётчик подряд идущих неполных страниц
 
-        relocation = "living_or_relocation" if not_living else "living"
+        # Определяем параметр relocation
+        if relocation is None:
+            relocation = "living_or_relocation"
+        
+        # Определяем статус поиска работы
+        if job_search_status is None:
+            job_search_status = ["active_search", "looking_for_offers"]
 
         while len(all_items) < total:
             remaining = total - len(all_items)
@@ -235,29 +274,83 @@ class HHApiClient:
             params = {
                 "text": keywords_query,
                 "relocation": relocation,
-                "job_search_status": ["active_search", "looking_for_offers"],
+                "job_search_status": job_search_status,
                 "area": region,
                 "page": page,
                 "per_page": current_per_page
             }
 
+            # Параметры текстового поиска
+            if text_logic:
+                params["text.logic"] = text_logic
+            if text_field:
+                params["text.field"] = text_field
+            if text_period:
+                params["text.period"] = text_period
+
+            # Параметры зарплаты
+            if salary_from is not None:
+                params["salary_from"] = salary_from
             if salary_to is not None:
                 params["salary_to"] = salary_to
-                params["label"] = "only_with_salary"
+            if currency:
+                params["currency"] = currency
+
+            # Параметры фильтрации
+            if age_from is not None:
+                params["age_from"] = age_from
+            if age_to is not None:
+                params["age_to"] = age_to
+            if experience:
+                params["experience"] = experience
+            if education_levels:
+                params["education_levels"] = education_levels
+            if employment:
+                params["employment"] = employment
+            if schedule:
+                params["schedule"] = schedule
+            if gender:
+                params["gender"] = gender
+
+            # Параметры дат
+            if period is not None:
+                params["period"] = period
+            if date_from:
+                params["date_from"] = date_from
+            if date_to:
+                params["date_to"] = date_to
+
+            # Дополнительные фильтры
+            if order_by:
+                params["order_by"] = order_by
+            if labels:
+                params["label"] = labels
+
+            # Автоматически добавляем label для зарплаты если указана
+            if salary_from is not None or salary_to is not None:
+                if "label" not in params:
+                    params["label"] = []
+                if isinstance(params["label"], str):
+                    params["label"] = [params["label"]]
+                if "only_with_salary" not in params["label"]:
+                    params["label"].append("only_with_salary")
 
             url = f"{self.base_url}/resumes"
             encoded_params = urlencode(params, doseq=True)
             full_url = f"{url}?{encoded_params}"
             logger.info(f"Выполняется GET-запрос к API HeadHunter: {full_url}")
+            logger.info(f"Параметры запроса: {params}")
 
             cached = self._get_cached_response(url, params)
             if cached:
+                logger.info(f"Получены данные из кэша для страницы {page}")
                 items = cached.get("items", [])
                 all_items.extend(items)
                 page += 1
                 # Проверка количества возвращённых резюме
                 if len(items) < current_per_page:
                     empty_or_few_count += 1
+                    logger.info(f"Неполная страница {page}: получено {len(items)} из {current_per_page}")
                 else:
                     empty_or_few_count = 0
                 if empty_or_few_count >= 3:
@@ -267,10 +360,25 @@ class HHApiClient:
 
             headers = self.get_headers()
             try:
+                logger.info(f"Отправляем HTTP запрос к HH API (страница {page})")
                 response = requests.get(url, headers=headers, params=params)
+                logger.info(f"Получен ответ от HH API: статус {response.status_code}")
+                
                 response.raise_for_status()
                 result = response.json()
+                
+                # Логируем статистику ответа
                 items = result.get("items", [])
+                found = result.get("found", 0)
+                pages = result.get("pages", 0)
+                per_page_actual = result.get("per_page", 0)
+                
+                logger.info(f"Статистика ответа HH API:")
+                logger.info(f"  - Найдено всего: {found}")
+                logger.info(f"  - Страниц: {pages}")
+                logger.info(f"  - На странице: {per_page_actual}")
+                logger.info(f"  - Получено резюме: {len(items)}")
+                
                 all_items.extend(items)
                 self._save_to_cache(url, params, result)
                 page += 1
@@ -288,6 +396,12 @@ class HHApiClient:
                 logger.error(f"Ошибка при запросе страницы {page}: {e}")
                 raise
 
+        logger.info("=== ИТОГИ ПОИСКА ===")
+        logger.info(f"Всего загружено резюме: {len(all_items)}")
+        logger.info(f"Обработано страниц: {page}")
+        logger.info(f"Запрошено резюме: {total}")
+        logger.info("=== КОНЕЦ ПОИСКА ===")
+        
         return {"found": len(all_items), "items": all_items}
 
     def check_and_handle_resume_limit(self):
@@ -325,21 +439,37 @@ class HHApiClient:
         headers = self.get_headers()
         params = {}
 
+        logger.info(f"Запрос деталей резюме: {resume_id}")
+
         # Шаг 1: Проверяем кэш
         cached = self._get_cached_response(url, params)
         if cached:
+            logger.info(f"Резюме {resume_id} получено из кэша")
             return cached
 
         # Шаг 2: Делаем запрос
         try:
+            logger.info(f"Отправляем HTTP запрос для резюме {resume_id}")
             response = requests.get(url, headers=headers, params=params)
+            logger.info(f"Получен ответ для резюме {resume_id}: статус {response.status_code}")
+            
             response.raise_for_status()
             resume_data = response.json()
-            # logger.debug(f"RESUME DATA: {resume_data}")
+            
+            # Логируем основную информацию о резюме
+            title = resume_data.get("title", "Без названия")
+            area = resume_data.get("area", {}).get("name", "Не указан")
+            salary = resume_data.get("salary", {})
+            salary_amount = salary.get("amount") if salary else None
+            
+            logger.info(f"Детали резюме {resume_id}:")
+            logger.info(f"  - Название: {title}")
+            logger.info(f"  - Регион: {area}")
+            logger.info(f"  - Зарплата: {salary_amount}")
 
             # Шаг 3: Сохраняем в кэш
             self._save_to_cache(url, params, resume_data)
-            logger.debug(f"Получены полные данные резюме: {resume_id}")
+            logger.info(f"Резюме {resume_id} сохранено в кэш")
             return resume_data
         except requests.HTTPError as e:
             if response.status_code == 404:

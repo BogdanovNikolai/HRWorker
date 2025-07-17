@@ -4,30 +4,74 @@
 <h2>Поиск резюме по ключевым словам</h2>
 
 <form method="GET" action="{{ url_for('search') }}" class="mb-4">
+    <!-- Основные параметры -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Основные параметры</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
     <div class="mb-3">
         <label for="source">Источник</label>
-        <select id="source" name="source">
+                        <select id="source" name="source" class="form-control">
             <option value="hh">HeadHunter</option>
             <option value="avito">Avito</option>
         </select>
     </div>
 
+    <!-- Текстовые поля поиска -->
     <div class="mb-3">
-        <label for="keywords" class="form-label">Ключевые слова</label>
-        <input type="text" class="form-control" id="keywords" name="keywords"
-               placeholder="python middle разработчик"
-               value="{{ request.args.get('keywords', '') }}">
+        <label class="form-label">Текстовые поля поиска *</label>
+        <div id="text-fields-container">
+            <div class="text-field-group mb-3" data-field-id="0">
+                <div class="row">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" name="keywords[]" 
+                               placeholder="python middle разработчик" required>
+                        <small class="form-text text-muted">Ключевые слова или фразы</small>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="text_logic[]" class="form-control">
+                            <option value="all">Все слова встречаются</option>
+                            <option value="any">Любое из слов встречается</option>
+                            <option value="phrase">Точная фраза встречается</option>
+                            <option value="except">Не встречаются</option>
+                        </select>
+                        <small class="form-text text-muted">Логика поиска</small>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="text_field[]" class="form-control">
+                            <option value="everywhere">Везде</option>
+                            <option value="title">В названии резюме</option>
+                            <option value="education">В образовании</option>
+                            <option value="skills">В ключевых навыках</option>
+                            <option value="experience">В опыте работы</option>
+                            <option value="experience_company">В компаниях и отраслях</option>
+                            <option value="experience_position">В должностях</option>
+                            <option value="experience_description">В обязанностях</option>
+                        </select>
+                        <small class="form-text text-muted">Поле поиска</small>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-text-field" style="display: none;">
+                            <i class="fas fa-minus"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-outline-success btn-sm" id="add-text-field">
+            <i class="fas fa-plus"></i> Добавить поле
+        </button>
+        <small class="form-text text-muted">Добавьте несколько полей для создания сложных поисковых запросов</small>
     </div>
+                </div>
 
-    <div class="mb-3">
-        <label for="salary_to" class="form-label">Верхняя граница зарплаты</label>
-        <input type="number" class="form-control" id="salary_to" name="salary_to"
-               value="{{ request.args.get('salary_to') }}">
-    </div>
-
-    <div class="mb-3">
-        <label for="region">Регион</label>
-        <select id="region" name="region" class="form-control" multiple>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="region">Регион *</label>
+                        <select id="region" name="region" class="form-control" multiple required>
             <option value="">-- Выберите регион --</option>
             {% for region in regions %}
                 <option value="{{ region.id }}">{{ region.name }}</option>
@@ -35,13 +79,259 @@
         </select>
     </div>
 
-    <div class="mb-3 form-check">
-        <input type="checkbox" class="form-check-input" id="not_living" name="not_living">
-        <label class="form-check-label" for="not_living">Рассматривать готовых к переезду?</label>
+                    <div class="mb-3">
+                        <label for="relocation" class="form-label">Готовность к переезду</label>
+                        <select id="relocation" name="relocation" class="form-control">
+                            <option value="living_or_relocation">Живут в регионе или готовы переехать</option>
+                            <option value="living">Живут в регионе</option>
+                            <option value="living_but_relocation">Живут в регионе и готовы к переезду</option>
+                            <option value="relocation">Не живут в регионе, но готовы переехать</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="total" class="form-label">Количество резюме</label>
+                        <input type="number" class="form-control" id="total" name="total" min="1" max="2000"
+                               value="{{ request.args.get('total', '20') }}">
+                        <small class="form-text text-muted">Максимум 2000 резюме</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="per_page" class="form-label">Резюме на страницу</label>
+                        <input type="number" class="form-control" id="per_page" name="per_page" min="1" max="100"
+                               value="{{ request.args.get('per_page', '20') }}">
+                        <small class="form-text text-muted">Максимум 100 резюме на страницу</small>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Фильтры по зарплате -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Зарплата</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="salary_from" class="form-label">От</label>
+                        <input type="number" class="form-control" id="salary_from" name="salary_from"
+                               value="{{ request.args.get('salary_from') }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="salary_to" class="form-label">До</label>
+                        <input type="number" class="form-control" id="salary_to" name="salary_to"
+                               value="{{ request.args.get('salary_to') }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Валюта</label>
+                        <select id="currency" name="currency" class="form-control">
+                            <option value="RUR">Рубли</option>
+                            <option value="USD">Доллары</option>
+                            <option value="EUR">Евро</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="only_with_salary" name="label" value="only_with_salary">
+                <label class="form-check-label" for="only_with_salary">Только с указанной зарплатой</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтры по опыту и образованию -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Опыт и образование</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="experience" class="form-label">Опыт работы</label>
+                        <select id="experience" name="experience" class="form-control" multiple>
+                            <option value="noExperience">Нет опыта</option>
+                            <option value="between1And3">От 1 года до 3 лет</option>
+                            <option value="between3And6">От 3 до 6 лет</option>
+                            <option value="moreThan6">Более 6 лет</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="education_levels" class="form-label">Уровень образования</label>
+                        <select id="education_levels" name="education_levels" class="form-control" multiple>
+                            <option value="secondary">Среднее</option>
+                            <option value="special_secondary">Среднее специальное</option>
+                            <option value="unfinished_higher">Неоконченное высшее</option>
+                            <option value="higher">Высшее</option>
+                            <option value="bachelor">Бакалавр</option>
+                            <option value="master">Магистр</option>
+                            <option value="candidate">Кандидат наук</option>
+                            <option value="doctor">Доктор наук</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="employment" class="form-label">Тип занятости</label>
+                        <select id="employment" name="employment" class="form-control" multiple>
+                            <option value="full">Полная занятость</option>
+                            <option value="part">Частичная занятость</option>
+                            <option value="project">Проектная работа</option>
+                            <option value="volunteer">Волонтерство</option>
+                            <option value="probation">Стажировка</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="schedule" class="form-label">График работы</label>
+                        <select id="schedule" name="schedule" class="form-control" multiple>
+                            <option value="fullDay">Полный день</option>
+                            <option value="shift">Сменный график</option>
+                            <option value="flexible">Гибкий график</option>
+                            <option value="remote">Удаленная работа</option>
+                            <option value="flyInFlyOut">Вахтовый метод</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Дополнительные фильтры -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Дополнительные фильтры</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="age_from" class="form-label">Возраст от</label>
+                        <input type="number" class="form-control" id="age_from" name="age_from" min="14" max="100"
+                               value="{{ request.args.get('age_from') }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="age_to" class="form-label">Возраст до</label>
+                        <input type="number" class="form-control" id="age_to" name="age_to" min="14" max="100"
+                               value="{{ request.args.get('age_to') }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="gender" class="form-label">Пол</label>
+                        <select id="gender" name="gender" class="form-control">
+                            <option value="">Любой</option>
+                            <option value="male">Мужской</option>
+                            <option value="female">Женский</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="job_search_status" class="form-label">Статус поиска работы</label>
+                        <select id="job_search_status" name="job_search_status" class="form-control" multiple>
+                            <option value="active_search">Активно ищет работу</option>
+                            <option value="looking_for_offers">Рассматривает предложения</option>
+                            <option value="not_looking_for_job">Не ищет работу</option>
+                            <option value="has_job_offer">Предложили работу, решает</option>
+                            <option value="accepted_job_offer">Вышел на новое место</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="period" class="form-label">Период публикации (дни)</label>
+                        <input type="number" class="form-control" id="period" name="period" min="1" max="365"
+                               value="{{ request.args.get('period') }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="date_from" class="form-label">Дата публикации от</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from"
+                               value="{{ request.args.get('date_from') }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="date_to" class="form-label">Дата публикации до</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to"
+                               value="{{ request.args.get('date_to') }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="order_by" class="form-label">Сортировка</label>
+                        <select id="order_by" name="order_by" class="form-control">
+                            <option value="relevance">По соответствию</option>
+                            <option value="publication_time">По дате изменения</option>
+                            <option value="salary_desc">По убыванию зарплаты</option>
+                            <option value="salary_asc">По возрастанию зарплаты</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Дополнительные чекбоксы -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="only_with_photo" name="label" value="only_with_photo">
+                        <label class="form-check-label" for="only_with_photo">Только с фотографией</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="only_with_age" name="label" value="only_with_age">
+                        <label class="form-check-label" for="only_with_age">Только с указанным возрастом</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="only_with_gender" name="label" value="only_with_gender">
+                        <label class="form-check-label" for="only_with_gender">Только с указанным полом</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="only_with_vehicle" name="label" value="only_with_vehicle">
+                        <label class="form-check-label" for="only_with_vehicle">Есть личный автомобиль</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_user_id" name="label" value="exclude_viewed_by_user_id">
+                        <label class="form-check-label" for="exclude_viewed_by_user_id">Скрыть просмотренные мной</label>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_employer_id" name="label" value="exclude_viewed_by_employer_id">
+                        <label class="form-check-label" for="exclude_viewed_by_employer_id">Скрыть просмотренные компанией</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Описание для ИИ -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Описание вакансии (для ИИ)</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="description" class="form-label">Описание вакансии</label>
+                <textarea class="form-control" id="description" name="description" rows="3"
+                          placeholder="Опишите требования к кандидату для более точного поиска">{{ request.args.get('description', '') }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Искать резюме</button>
+</form>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Инициализация TomSelect для множественного выбора
             const regionSelect = new TomSelect("#region", {
                 plugins: ['remove_button'],
                 maxItems: 10,
@@ -49,24 +339,124 @@
             });
 
             // Устанавливаем значение по умолчанию (id = 2019)
-            regionSelect.setValue([2019]); // массив, потому что multiple
+            regionSelect.setValue([2019]);
+
+            // Инициализация других множественных селектов
+            const multiSelects = ['experience', 'education_levels', 'employment', 'schedule', 'job_search_status'];
+            multiSelects.forEach(selectId => {
+                new TomSelect(`#${selectId}`, {
+                    plugins: ['remove_button'],
+                    placeholder: "Выберите значения",
+                });
+            });
+
+            // Обработка чекбоксов label
+            const labelCheckboxes = document.querySelectorAll('input[name="label"]');
+            labelCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        // Убираем другие чекбоксы с тем же значением
+                        labelCheckboxes.forEach(other => {
+                            if (other !== this && other.value === this.value) {
+                                other.checked = false;
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Управление динамическими текстовыми полями
+            let fieldCounter = 1;
+            const container = document.getElementById('text-fields-container');
+            const addButton = document.getElementById('add-text-field');
+
+            // Функция для добавления нового поля
+            function addTextField() {
+                const fieldGroup = document.createElement('div');
+                fieldGroup.className = 'text-field-group mb-3';
+                fieldGroup.setAttribute('data-field-id', fieldCounter);
+
+                fieldGroup.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" name="keywords[]" 
+                                   placeholder="python middle разработчик" required>
+                            <small class="form-text text-muted">Ключевые слова или фразы</small>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="text_logic[]" class="form-control">
+                                <option value="all">Все слова встречаются</option>
+                                <option value="any">Любое из слов встречается</option>
+                                <option value="phrase">Точная фраза встречается</option>
+                                <option value="except">Не встречаются</option>
+                            </select>
+                            <small class="form-text text-muted">Логика поиска</small>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="text_field[]" class="form-control">
+                                <option value="everywhere">Везде</option>
+                                <option value="title">В названии резюме</option>
+                                <option value="education">В образовании</option>
+                                <option value="skills">В ключевых навыках</option>
+                                <option value="experience">В опыте работы</option>
+                                <option value="experience_company">В компаниях и отраслях</option>
+                                <option value="experience_position">В должностях</option>
+                                <option value="experience_description">В обязанностях</option>
+                            </select>
+                            <small class="form-text text-muted">Поле поиска</small>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-text-field">
+                                <i class="fas fa-minus"></i> Удалить
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(fieldGroup);
+                fieldCounter++;
+
+                // Показываем кнопку удаления для всех полей, кроме первого
+                updateRemoveButtons();
+            }
+
+            // Функция для удаления поля
+            function removeTextField(fieldGroup) {
+                fieldGroup.remove();
+                updateRemoveButtons();
+            }
+
+            // Функция для обновления видимости кнопок удаления
+            function updateRemoveButtons() {
+                const fieldGroups = container.querySelectorAll('.text-field-group');
+                const removeButtons = container.querySelectorAll('.remove-text-field');
+                
+                if (fieldGroups.length > 1) {
+                    removeButtons.forEach(button => {
+                        button.style.display = 'inline-block';
+                    });
+                } else {
+                    removeButtons.forEach(button => {
+                        button.style.display = 'none';
+                    });
+                }
+            }
+
+            // Обработчик для кнопки добавления
+            addButton.addEventListener('click', addTextField);
+
+            // Обработчик для кнопок удаления (делегирование событий)
+            container.addEventListener('click', function(e) {
+                if (e.target.closest('.remove-text-field')) {
+                    const fieldGroup = e.target.closest('.text-field-group');
+                    removeTextField(fieldGroup);
+                }
+            });
+
+            // Инициализация кнопок удаления
+            updateRemoveButtons();
         });
     </script>
-
-    <div class="mb-3">
-        <label for="description" class="form-label">Описание вакансии (для ИИ)</label>
-        <textarea class="form-control" id="description" name="description" rows="3">
-{{ request.args.get('description', '') }}</textarea>
-    </div>
-
-    <div class="mb-3">
-        <label for="total" class="form-label">Сколько всего резюме загрузить</label>
-        <input type="number" class="form-control" id="total" name="total" min="1"
-               value="{{ request.args.get('total', '20') }}">
-    </div>
-
-    <button type="submit" class="btn btn-primary">Искать</button>
-</form>
 
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>

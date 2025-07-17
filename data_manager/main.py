@@ -40,13 +40,37 @@ class DataManager:
     def search_resumes(
     self,
     keywords: str,
-    salary_to: Optional[int] = None,
+    source: str = "hh",
     region: List[str] = ["113"],
-    not_living: bool = False,
     total: int = 50,
     per_page: int = 50,
     description: Optional[str] = "",
-    source: str = "hh",
+    # Параметры текстового поиска
+    text_logic: Optional[str] = None,
+    text_field: Optional[str] = None,
+    text_period: Optional[str] = None,
+    # Параметры зарплаты
+    salary_from: Optional[int] = None,
+    salary_to: Optional[int] = None,
+    currency: Optional[str] = None,
+    # Параметры фильтрации
+    age_from: Optional[int] = None,
+    age_to: Optional[int] = None,
+    experience: Optional[List[str]] = None,
+    education_levels: Optional[List[str]] = None,
+    employment: Optional[List[str]] = None,
+    schedule: Optional[List[str]] = None,
+    gender: Optional[str] = None,
+    job_search_status: Optional[List[str]] = None,
+    # Параметры дат
+    period: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    # Параметры переезда
+    relocation: Optional[str] = None,
+    # Дополнительные фильтры
+    order_by: Optional[str] = None,
+    labels: Optional[List[str]] = None,
 ) -> str:
         """
         Синхронно выполняет поиск резюме и сохраняет результаты.
@@ -57,12 +81,36 @@ class DataManager:
         try:
             resumes = self.search_engine.search(
                 keywords=keywords,
-                salary_to=salary_to,
+                source=source,
                 region=region,
-                not_living=not_living,
                 total=total,
                 per_page=per_page,
-                source=source,
+                # Параметры текстового поиска
+                text_logic=text_logic,
+                text_field=text_field,
+                text_period=text_period,
+                # Параметры зарплаты
+                salary_from=salary_from,
+                salary_to=salary_to,
+                currency=currency,
+                # Параметры фильтрации
+                age_from=age_from,
+                age_to=age_to,
+                experience=experience,
+                education_levels=education_levels,
+                employment=employment,
+                schedule=schedule,
+                gender=gender,
+                job_search_status=job_search_status,
+                # Параметры дат
+                period=period,
+                date_from=date_from,
+                date_to=date_to,
+                # Параметры переезда
+                relocation=relocation,
+                # Дополнительные фильтры
+                order_by=order_by,
+                labels=labels,
             )
             if not isinstance(resumes, list):
                 logger.error("Ошибка поиска: ожидался список резюме")
