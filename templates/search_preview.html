@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Предварительный просмотр поиска{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-search"></i> Результаты поиска
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        {% if found > 0 %}
+                            <div class="alert alert-success">
+                                <h4 class="alert-heading">
+                                    <i class="fas fa-check-circle"></i> Найдено резюме
+                                </h4>
+                                <h2 class="display-4 text-success">{{ found }}</h2>
+                                <p class="mb-0">резюме соответствуют вашим критериям поиска</p>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <h4 class="alert-heading">
+                                    <i class="fas fa-exclamation-triangle"></i> Резюме не найдены
+                                </h4>
+                                <p class="mb-0">По вашему запросу не найдено ни одного резюме. Попробуйте изменить критерии поиска.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Информация о поиске -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> Параметры поиска</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Ключевые слова:</strong> {{ keywords }}</p>
+                                    <p><strong>Регион:</strong> {{ region_names }}</p>
+                                    <p><strong>Источник:</strong> {{ source_name }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    {% if salary_from or salary_to %}
+                                        <p><strong>Зарплата:</strong> 
+                                            {% if salary_from and salary_to %}
+                                                {{ salary_from }} - {{ salary_to }} {{ currency }}
+                                            {% elif salary_from %}
+                                                от {{ salary_from }} {{ currency }}
+                                            {% elif salary_to %}
+                                                до {{ salary_to }} {{ currency }}
+                                            {% endif %}
+                                        </p>
+                                    {% endif %}
+                                    {% if experience %}
+                                        <p><strong>Опыт:</strong> {{ experience_names }}</p>
+                                    {% endif %}
+                                    {% if total %}
+                                        <p><strong>Запрошено:</strong> {{ total }} резюме</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки действий -->
+                    <div class="text-center">
+                        <div class="btn-group" role="group">
+                            {% if found > 0 %}
+                                <a href="{{ url_for('show_resumes', task_id=task_id, source=source) }}" 
+                                   class="btn btn-primary btn-lg">
+                                    <i class="fas fa-eye"></i> Просмотреть резюме
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('search') }}?{{ search_params }}" 
+                               class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-edit"></i> Изменить поиск
+                            </a>
+                            <a href="{{ url_for('search') }}" 
+                               class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-plus"></i> Новый поиск
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Дополнительная информация -->
+                    {% if found > 0 %}
+                        <div class="mt-4">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-lightbulb"></i> Совет</h6>
+                                <p class="mb-0">
+                                    Если найдено много резюме, попробуйте уточнить критерии поиска для получения более релевантных результатов.
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-group .btn {
+    margin: 0 5px;
+}
+.btn-group .btn:first-child {
+    margin-left: 0;
+}
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+    }
+    .btn-group .btn {
+        margin: 5px 0;
+    }
+}
+</style>
+{% endblock %} 

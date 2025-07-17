@@ -28,28 +28,29 @@
                 <div class="row">
                     <div class="col-md-4">
                         <input type="text" class="form-control" name="keywords[]" 
-                               placeholder="python middle разработчик" required>
+                               placeholder="python middle разработчик" 
+                               value="{{ request.args.getlist('keywords[]')[0] if request.args.getlist('keywords[]') else '' }}" required>
                         <small class="form-text text-muted">Ключевые слова или фразы</small>
                     </div>
                     <div class="col-md-3">
                         <select name="text_logic[]" class="form-control">
-                            <option value="all">Все слова встречаются</option>
-                            <option value="any">Любое из слов встречается</option>
-                            <option value="phrase">Точная фраза встречается</option>
-                            <option value="except">Не встречаются</option>
+                            <option value="all" {% if request.args.getlist('text_logic[]')[0] == 'all' or not request.args.getlist('text_logic[]') %}selected{% endif %}>Все слова встречаются</option>
+                            <option value="any" {% if request.args.getlist('text_logic[]')[0] == 'any' %}selected{% endif %}>Любое из слов встречается</option>
+                            <option value="phrase" {% if request.args.getlist('text_logic[]')[0] == 'phrase' %}selected{% endif %}>Точная фраза встречается</option>
+                            <option value="except" {% if request.args.getlist('text_logic[]')[0] == 'except' %}selected{% endif %}>Не встречаются</option>
                         </select>
                         <small class="form-text text-muted">Логика поиска</small>
                     </div>
                     <div class="col-md-3">
                         <select name="text_field[]" class="form-control">
-                            <option value="everywhere">Везде</option>
-                            <option value="title">В названии резюме</option>
-                            <option value="education">В образовании</option>
-                            <option value="skills">В ключевых навыках</option>
-                            <option value="experience">В опыте работы</option>
-                            <option value="experience_company">В компаниях и отраслях</option>
-                            <option value="experience_position">В должностях</option>
-                            <option value="experience_description">В обязанностях</option>
+                            <option value="everywhere" {% if request.args.getlist('text_field[]')[0] == 'everywhere' or not request.args.getlist('text_field[]') %}selected{% endif %}>Везде</option>
+                            <option value="title" {% if request.args.getlist('text_field[]')[0] == 'title' %}selected{% endif %}>В названии резюме</option>
+                            <option value="education" {% if request.args.getlist('text_field[]')[0] == 'education' %}selected{% endif %}>В образовании</option>
+                            <option value="skills" {% if request.args.getlist('text_field[]')[0] == 'skills' %}selected{% endif %}>В ключевых навыках</option>
+                            <option value="experience" {% if request.args.getlist('text_field[]')[0] == 'experience' %}selected{% endif %}>В опыте работы</option>
+                            <option value="experience_company" {% if request.args.getlist('text_field[]')[0] == 'experience_company' %}selected{% endif %}>В компаниях и отраслях</option>
+                            <option value="experience_position" {% if request.args.getlist('text_field[]')[0] == 'experience_position' %}selected{% endif %}>В должностях</option>
+                            <option value="experience_description" {% if request.args.getlist('text_field[]')[0] == 'experience_description' %}selected{% endif %}>В обязанностях</option>
                         </select>
                         <small class="form-text text-muted">Поле поиска</small>
                     </div>
@@ -74,7 +75,10 @@
                         <select id="region" name="region" class="form-control" multiple required>
             <option value="">-- Выберите регион --</option>
             {% for region in regions %}
-                <option value="{{ region.id }}">{{ region.name }}</option>
+                <option value="{{ region.id }}" 
+                        {% if region.id|string in request.args.getlist('region') %}selected{% endif %}>
+                    {{ region.name }}
+                </option>
             {% endfor %}
         </select>
     </div>
@@ -82,10 +86,10 @@
                     <div class="mb-3">
                         <label for="relocation" class="form-label">Готовность к переезду</label>
                         <select id="relocation" name="relocation" class="form-control">
-                            <option value="living_or_relocation">Живут в регионе или готовы переехать</option>
-                            <option value="living">Живут в регионе</option>
-                            <option value="living_but_relocation">Живут в регионе и готовы к переезду</option>
-                            <option value="relocation">Не живут в регионе, но готовы переехать</option>
+                            <option value="living_or_relocation" {% if request.args.get('relocation') == 'living_or_relocation' %}selected{% endif %}>Живут в регионе или готовы переехать</option>
+                            <option value="living" {% if request.args.get('relocation') == 'living' %}selected{% endif %}>Живут в регионе</option>
+                            <option value="living_but_relocation" {% if request.args.get('relocation') == 'living_but_relocation' %}selected{% endif %}>Живут в регионе и готовы к переезду</option>
+                            <option value="relocation" {% if request.args.get('relocation') == 'relocation' %}selected{% endif %}>Не живут в регионе, но готовы переехать</option>
                         </select>
                     </div>
 
@@ -94,13 +98,6 @@
                         <input type="number" class="form-control" id="total" name="total" min="1" max="2000"
                                value="{{ request.args.get('total', '20') }}">
                         <small class="form-text text-muted">Максимум 2000 резюме</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="per_page" class="form-label">Резюме на страницу</label>
-                        <input type="number" class="form-control" id="per_page" name="per_page" min="1" max="100"
-                               value="{{ request.args.get('per_page', '20') }}">
-                        <small class="form-text text-muted">Максимум 100 резюме на страницу</small>
                     </div>
                 </div>
             </div>
@@ -132,15 +129,15 @@
                     <div class="mb-3">
                         <label for="currency" class="form-label">Валюта</label>
                         <select id="currency" name="currency" class="form-control">
-                            <option value="RUR">Рубли</option>
-                            <option value="USD">Доллары</option>
-                            <option value="EUR">Евро</option>
+                            <option value="RUR" {% if request.args.get('currency') == 'RUR' %}selected{% endif %}>Рубли</option>
+                            <option value="USD" {% if request.args.get('currency') == 'USD' %}selected{% endif %}>Доллары</option>
+                            <option value="EUR" {% if request.args.get('currency') == 'EUR' %}selected{% endif %}>Евро</option>
                         </select>
                     </div>
                 </div>
             </div>
             <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="only_with_salary" name="label" value="only_with_salary">
+                <input type="checkbox" class="form-check-input" id="only_with_salary" name="label" value="only_with_salary" {% if 'only_with_salary' in request.args.getlist('label') %}checked{% endif %}>
                 <label class="form-check-label" for="only_with_salary">Только с указанной зарплатой</label>
             </div>
         </div>
@@ -157,24 +154,24 @@
                     <div class="mb-3">
                         <label for="experience" class="form-label">Опыт работы</label>
                         <select id="experience" name="experience" class="form-control" multiple>
-                            <option value="noExperience">Нет опыта</option>
-                            <option value="between1And3">От 1 года до 3 лет</option>
-                            <option value="between3And6">От 3 до 6 лет</option>
-                            <option value="moreThan6">Более 6 лет</option>
+                            <option value="noExperience" {% if 'noExperience' in request.args.getlist('experience') %}selected{% endif %}>Нет опыта</option>
+                            <option value="between1And3" {% if 'between1And3' in request.args.getlist('experience') %}selected{% endif %}>От 1 года до 3 лет</option>
+                            <option value="between3And6" {% if 'between3And6' in request.args.getlist('experience') %}selected{% endif %}>От 3 до 6 лет</option>
+                            <option value="moreThan6" {% if 'moreThan6' in request.args.getlist('experience') %}selected{% endif %}>Более 6 лет</option>
                         </select>
                     </div>
 
                     <div class="mb-3">
                         <label for="education_levels" class="form-label">Уровень образования</label>
                         <select id="education_levels" name="education_levels" class="form-control" multiple>
-                            <option value="secondary">Среднее</option>
-                            <option value="special_secondary">Среднее специальное</option>
-                            <option value="unfinished_higher">Неоконченное высшее</option>
-                            <option value="higher">Высшее</option>
-                            <option value="bachelor">Бакалавр</option>
-                            <option value="master">Магистр</option>
-                            <option value="candidate">Кандидат наук</option>
-                            <option value="doctor">Доктор наук</option>
+                            <option value="secondary" {% if 'secondary' in request.args.getlist('education_levels') %}selected{% endif %}>Среднее</option>
+                            <option value="special_secondary" {% if 'special_secondary' in request.args.getlist('education_levels') %}selected{% endif %}>Среднее специальное</option>
+                            <option value="unfinished_higher" {% if 'unfinished_higher' in request.args.getlist('education_levels') %}selected{% endif %}>Неоконченное высшее</option>
+                            <option value="higher" {% if 'higher' in request.args.getlist('education_levels') %}selected{% endif %}>Высшее</option>
+                            <option value="bachelor" {% if 'bachelor' in request.args.getlist('education_levels') %}selected{% endif %}>Бакалавр</option>
+                            <option value="master" {% if 'master' in request.args.getlist('education_levels') %}selected{% endif %}>Магистр</option>
+                            <option value="candidate" {% if 'candidate' in request.args.getlist('education_levels') %}selected{% endif %}>Кандидат наук</option>
+                            <option value="doctor" {% if 'doctor' in request.args.getlist('education_levels') %}selected{% endif %}>Доктор наук</option>
                         </select>
                     </div>
                 </div>
@@ -183,22 +180,22 @@
                     <div class="mb-3">
                         <label for="employment" class="form-label">Тип занятости</label>
                         <select id="employment" name="employment" class="form-control" multiple>
-                            <option value="full">Полная занятость</option>
-                            <option value="part">Частичная занятость</option>
-                            <option value="project">Проектная работа</option>
-                            <option value="volunteer">Волонтерство</option>
-                            <option value="probation">Стажировка</option>
+                            <option value="full" {% if 'full' in request.args.getlist('employment') %}selected{% endif %}>Полная занятость</option>
+                            <option value="part" {% if 'part' in request.args.getlist('employment') %}selected{% endif %}>Частичная занятость</option>
+                            <option value="project" {% if 'project' in request.args.getlist('employment') %}selected{% endif %}>Проектная работа</option>
+                            <option value="volunteer" {% if 'volunteer' in request.args.getlist('employment') %}selected{% endif %}>Волонтерство</option>
+                            <option value="probation" {% if 'probation' in request.args.getlist('employment') %}selected{% endif %}>Стажировка</option>
                         </select>
                     </div>
 
                     <div class="mb-3">
                         <label for="schedule" class="form-label">График работы</label>
                         <select id="schedule" name="schedule" class="form-control" multiple>
-                            <option value="fullDay">Полный день</option>
-                            <option value="shift">Сменный график</option>
-                            <option value="flexible">Гибкий график</option>
-                            <option value="remote">Удаленная работа</option>
-                            <option value="flyInFlyOut">Вахтовый метод</option>
+                            <option value="fullDay" {% if 'fullDay' in request.args.getlist('schedule') %}selected{% endif %}>Полный день</option>
+                            <option value="shift" {% if 'shift' in request.args.getlist('schedule') %}selected{% endif %}>Сменный график</option>
+                            <option value="flexible" {% if 'flexible' in request.args.getlist('schedule') %}selected{% endif %}>Гибкий график</option>
+                            <option value="remote" {% if 'remote' in request.args.getlist('schedule') %}selected{% endif %}>Удаленная работа</option>
+                            <option value="flyInFlyOut" {% if 'flyInFlyOut' in request.args.getlist('schedule') %}selected{% endif %}>Вахтовый метод</option>
                         </select>
                     </div>
                 </div>
@@ -229,20 +226,20 @@
                     <div class="mb-3">
                         <label for="gender" class="form-label">Пол</label>
                         <select id="gender" name="gender" class="form-control">
-                            <option value="">Любой</option>
-                            <option value="male">Мужской</option>
-                            <option value="female">Женский</option>
+                            <option value="" {% if request.args.get('gender') == '' %}selected{% endif %}>Любой</option>
+                            <option value="male" {% if request.args.get('gender') == 'male' %}selected{% endif %}>Мужской</option>
+                            <option value="female" {% if request.args.get('gender') == 'female' %}selected{% endif %}>Женский</option>
                         </select>
                     </div>
 
                     <div class="mb-3">
                         <label for="job_search_status" class="form-label">Статус поиска работы</label>
                         <select id="job_search_status" name="job_search_status" class="form-control" multiple>
-                            <option value="active_search">Активно ищет работу</option>
-                            <option value="looking_for_offers">Рассматривает предложения</option>
-                            <option value="not_looking_for_job">Не ищет работу</option>
-                            <option value="has_job_offer">Предложили работу, решает</option>
-                            <option value="accepted_job_offer">Вышел на новое место</option>
+                            <option value="active_search" {% if 'active_search' in request.args.getlist('job_search_status') %}selected{% endif %}>Активно ищет работу</option>
+                            <option value="looking_for_offers" {% if 'looking_for_offers' in request.args.getlist('job_search_status') %}selected{% endif %}>Рассматривает предложения</option>
+                            <option value="not_looking_for_job" {% if 'not_looking_for_job' in request.args.getlist('job_search_status') %}selected{% endif %}>Не ищет работу</option>
+                            <option value="has_job_offer" {% if 'has_job_offer' in request.args.getlist('job_search_status') %}selected{% endif %}>Предложили работу, решает</option>
+                            <option value="accepted_job_offer" {% if 'accepted_job_offer' in request.args.getlist('job_search_status') %}selected{% endif %}>Вышел на новое место</option>
                         </select>
                     </div>
                 </div>
@@ -269,10 +266,10 @@
                     <div class="mb-3">
                         <label for="order_by" class="form-label">Сортировка</label>
                         <select id="order_by" name="order_by" class="form-control">
-                            <option value="relevance">По соответствию</option>
-                            <option value="publication_time">По дате изменения</option>
-                            <option value="salary_desc">По убыванию зарплаты</option>
-                            <option value="salary_asc">По возрастанию зарплаты</option>
+                            <option value="relevance" {% if request.args.get('order_by') == 'relevance' %}selected{% endif %}>По соответствию</option>
+                            <option value="publication_time" {% if request.args.get('order_by') == 'publication_time' %}selected{% endif %}>По дате изменения</option>
+                            <option value="salary_desc" {% if request.args.get('order_by') == 'salary_desc' %}selected{% endif %}>По убыванию зарплаты</option>
+                            <option value="salary_asc" {% if request.args.get('order_by') == 'salary_asc' %}selected{% endif %}>По возрастанию зарплаты</option>
                         </select>
                     </div>
                 </div>
@@ -282,29 +279,29 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="only_with_photo" name="label" value="only_with_photo">
+                        <input type="checkbox" class="form-check-input" id="only_with_photo" name="label" value="only_with_photo" {% if 'only_with_photo' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="only_with_photo">Только с фотографией</label>
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="only_with_age" name="label" value="only_with_age">
+                        <input type="checkbox" class="form-check-input" id="only_with_age" name="label" value="only_with_age" {% if 'only_with_age' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="only_with_age">Только с указанным возрастом</label>
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="only_with_gender" name="label" value="only_with_gender">
+                        <input type="checkbox" class="form-check-input" id="only_with_gender" name="label" value="only_with_gender" {% if 'only_with_gender' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="only_with_gender">Только с указанным полом</label>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="only_with_vehicle" name="label" value="only_with_vehicle">
+                        <input type="checkbox" class="form-check-input" id="only_with_vehicle" name="label" value="only_with_vehicle" {% if 'only_with_vehicle' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="only_with_vehicle">Есть личный автомобиль</label>
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_user_id" name="label" value="exclude_viewed_by_user_id">
+                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_user_id" name="label" value="exclude_viewed_by_user_id" {% if 'exclude_viewed_by_user_id' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="exclude_viewed_by_user_id">Скрыть просмотренные мной</label>
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_employer_id" name="label" value="exclude_viewed_by_employer_id">
+                        <input type="checkbox" class="form-check-input" id="exclude_viewed_by_employer_id" name="label" value="exclude_viewed_by_employer_id" {% if 'exclude_viewed_by_employer_id' in request.args.getlist('label') %}checked{% endif %}>
                         <label class="form-check-label" for="exclude_viewed_by_employer_id">Скрыть просмотренные компанией</label>
                     </div>
                 </div>
@@ -338,16 +335,27 @@
                 placeholder: "Выберите до 10 регионов",
             });
 
-            // Устанавливаем значение по умолчанию (id = 2019)
-            regionSelect.setValue([2019]);
+            // Устанавливаем значение по умолчанию или из URL параметров
+            const regionValues = {{ request.args.getlist('region') | tojson }};
+            if (regionValues && regionValues.length > 0) {
+                regionSelect.setValue(regionValues);
+            } else {
+                regionSelect.setValue(['2019']); // Значение по умолчанию
+            }
 
             // Инициализация других множественных селектов
             const multiSelects = ['experience', 'education_levels', 'employment', 'schedule', 'job_search_status'];
             multiSelects.forEach(selectId => {
-                new TomSelect(`#${selectId}`, {
+                const select = new TomSelect(`#${selectId}`, {
                     plugins: ['remove_button'],
                     placeholder: "Выберите значения",
                 });
+                
+                // Устанавливаем значения из URL параметров
+                const values = {{ request.args.getlist('experience') | tojson }};
+                if (values && values.length > 0) {
+                    select.setValue(values);
+                }
             });
 
             // Обработка чекбоксов label
