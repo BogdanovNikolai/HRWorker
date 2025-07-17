@@ -218,7 +218,7 @@ class AvitoAPIClient:
         return result
 
     # --- Работа с резюме ---
-    def resumes(self, query="Программист", location=107620, total=1, experience=None, salary_min=None, schedule=None):
+    def resumes(self, query="Программист", location=107620, total=1, per_page=25, experience=None, salary_min=None, schedule=None):
         """Поиск резюме по заданным параметрам"""
         endpoint = "/job/v1/resumes/"
         params = {'query': query, 'location': location}
@@ -229,7 +229,7 @@ class AvitoAPIClient:
         if schedule:
             params['schedule'] = schedule
 
-        return self.make_api_request(endpoint, params=params, total=total, per_page=100)
+        return self.make_api_request(endpoint, params=params, total=total, per_page=per_page)
     
     def resume(self, resume_id):
         """Получение данных резюме по resume_id"""

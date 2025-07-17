@@ -266,6 +266,7 @@ class SearchEngine:
                 query=keywords,
                 # location=region,
                 total=total,
+                per_page=per_page,
             )
             
             for item in raw_search_result.get("items", []):
