@@ -240,7 +240,7 @@
               ? resume.match_percent + '%'
               : '<span class="text-muted">—</span>'
           }</td>
-          ${show_links ? (resume.link ? `<td><a href="${resume.link}" target="_blank" class="btn btn-sm btn-outline-primary">Ссылка</a></td>` : '<td><span class="text-muted">—</span></td>') : ''}
+          ${show_links ? (resume.link ? `<td><a href="${resume.link}" target="_blank" class="btn btn-sm btn-outline-primary resume-link">Ссылка</a></td>` : '<td><span class="text-muted">—</span></td>') : ''}
           <td class="text-center">
             <div class="form-check form-check-inline m-0">
               <input class="form-check-input" type="checkbox" name="resume_ids" value="${resume.id}">
@@ -248,6 +248,13 @@
           </td>
         `;
         tbody.appendChild(row);
+      });
+      // Исправленный обработчик: добавляем класс .read к <tr>, а не к чекбоксу
+      tbody.querySelectorAll('a.resume-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+          const tr = this.closest('tr');
+          if (tr) tr.classList.add('read');
+        });
       });
     }
 
@@ -344,9 +351,9 @@
     content: " ▼";
   }
 
-  .read {
-    background-color: #f8f9fa !important; /* Светло-серый фон */
-    opacity: 0.6;
+  .read,
+  .read td {
+    background-color: #c1e0ff !important;
   }
   
   .table-primary {
